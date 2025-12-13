@@ -1,0 +1,20 @@
+# Changelog
+
+## [0.1.1](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.0...ipckit-v0.1.1) (2025-12-13)
+
+
+### Features
+
+* add GracefulChannel for graceful shutdown mechanism (Closes [#7](https://github.com/loonghao/ipckit/issues/7)) ([73f47be](https://github.com/loonghao/ipckit/commit/73f47bebba71d3f73395bf00b17d35a21503f66b))
+* enable abi3-py38 for Python 3.8-3.13 compatibility ([84f1987](https://github.com/loonghao/ipckit/commit/84f1987e6a71d5902ad4ed92a61ed96303d0b194))
+* use Unix Domain Socket for bidirectional IPC on Unix ([86066a8](https://github.com/loonghao/ipckit/commit/86066a80c81cdd8e5075aff5c9e9679a91f605ee))
+
+
+### Bug Fixes
+
+* release GIL during blocking pipe operations and fix test assertions for Unix ([ba9b68a](https://github.com/loonghao/ipckit/commit/ba9b68a6f24fd608e1eaafb5bfeca6641976073b))
+* remove unused imports and variables in pipe.rs ([d9d3cba](https://github.com/loonghao/ipckit/commit/d9d3cbacad000b339b4abd1dc51b267f33d4a2b4))
+* resolve clippy warnings and add pre-commit config ([a24de7b](https://github.com/loonghao/ipckit/commit/a24de7bf7a5bec82cccb9b1579dc1a2c9097b60e))
+* resolve compilation warnings and GIL blocking issues ([c7777ec](https://github.com/loonghao/ipckit/commit/c7777ec08bd640fd134aa31f131d692b57291157))
+* simplify pr-ready shell script for better compatibility ([f491ce8](https://github.com/loonghao/ipckit/commit/f491ce81d5433f4f78d6990d0e3d74d98762e4e7))
+* use Mutex for thread-safe AnonymousPipe access ([93b77fb](https://github.com/loonghao/ipckit/commit/93b77fbd84375316c9dd7314ea4e792659f99e02))
