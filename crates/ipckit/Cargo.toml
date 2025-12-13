@@ -21,6 +21,8 @@ abi3-py38 = ["pyo3/abi3-py38"]
 ext-module = ["pyo3/extension-module"]
 # Async support
 async = ["tokio"]
+# Use interprocess as backend for enhanced IPC support
+backend-interprocess = ["interprocess"]
 
 [dependencies]
 serde.workspace = true
@@ -39,6 +41,9 @@ tokio = { workspace = true, optional = true }
 
 # Optional Python bindings
 pyo3 = { workspace = true, optional = true }
+
+# Optional IPC backend
+interprocess = { workspace = true, optional = true }
 
 # Platform-specific dependencies
 [target.'cfg(unix)'.dependencies]

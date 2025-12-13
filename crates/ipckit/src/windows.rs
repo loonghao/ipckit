@@ -317,6 +317,123 @@ impl Write for NamedPipeClient {
 // Note: Mailslot functionality removed for simplicity
 // Use Named Pipes for bidirectional communication instead
 
+// ============================================================================
+// Helper functions for local_socket module (native backend)
+// ============================================================================
+
+/// Create a named pipe for server use (used by local_socket native backend)
+pub fn create_named_pipe_for_server(name: &str) -> Result<PipeHandle> {
+    let pipe_name = pipe_name(name);
+    let wide_name = to_wide(&pipe_name);
+
+    let handle = unsafe {
+        CreateNamedPipeW(
+            wide_name.as_ptr(),
+            PIPE_ACCESS_DUPLEX,
+            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
+            PIPE_UNLIMITED_INSTANCES,
+            4096,
+            4096,
+            0,
+            ptr::null(),
+        )
+    };
+
+    if handle == INVALID_HANDLE_VALUE {
+        return Err(IpcError::Io(std::io::Error::last_os_error()));
+    }
+
+    Ok(PipeHandle::new(handle))
+}
+
+/// Wait for a client to connect to the pipe handle
+pub fn wait_for_client_handle(handle: &PipeHandle) -> Result<()> {
+    let ret = unsafe { ConnectNamedPipe(handle.as_raw(), ptr::null_mut()) };
+
+    if ret == 0 {
+        let err = std::io::Error::last_os_error();
+        // ERROR_PIPE_CONNECTED (535) means client already connected
+        if err.raw_os_error() != Some(535) {
+            return Err(IpcError::Io(err));
+        }
+    }
+
+    Ok(())
+}
+
+/// Connect to an existing named pipe (used by local_socket native backend)
+pub fn connect_to_named_pipe(name: &str) -> Result<PipeHandle> {
+    let pipe_name = pipe_name(name);
+    let wide_name = to_wide(&pipe_name);
+
+    let handle = unsafe {
+        CreateFileW(
+            wide_name.as_ptr(),
+            GENERIC_READ | GENERIC_WRITE,
+            0,
+            ptr::null(),
+            OPEN_EXISTING,
+            0,
+            INVALID_HANDLE_VALUE,
+        )
+    };
+
+    if handle == INVALID_HANDLE_VALUE {
+        let err = std::io::Error::last_os_error();
+        return Err(match err.raw_os_error() {
+            Some(2) => IpcError::NotFound(pipe_name),
+            Some(5) => IpcError::PermissionDenied(pipe_name),
+            _ => IpcError::Io(err),
+        });
+    }
+
+    Ok(PipeHandle::new(handle))
+}
+
+/// Read from a pipe handle
+pub fn read_pipe(handle: &PipeHandle, buf: &mut [u8]) -> std::io::Result<usize> {
+    let mut bytes_read: u32 = 0;
+    let ret = unsafe {
+        ReadFile(
+            handle.as_raw(),
+            buf.as_mut_ptr() as *mut _,
+            buf.len() as u32,
+            &mut bytes_read,
+            ptr::null_mut(),
+        )
+    };
+
+    if ret == 0 {
+        let err = std::io::Error::last_os_error();
+        if err.raw_os_error() == Some(109) {
+            return Ok(0);
+        }
+        return Err(err);
+    }
+
+    Ok(bytes_read as usize)
+}
+
+/// Write to a pipe handle
+pub fn write_pipe(handle: &PipeHandle, buf: &[u8]) -> std::io::Result<usize> {
+    let mut bytes_written: u32 = 0;
+    let ret = unsafe {
+        WriteFile(
+            handle.as_raw(),
+            buf.as_ptr() as *const _,
+            buf.len() as u32,
+            &mut bytes_written,
+            ptr::null_mut(),
+        )
+    };
+
+    if ret == 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+
+    Ok(bytes_written as usize)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
