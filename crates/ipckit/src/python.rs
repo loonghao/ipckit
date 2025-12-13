@@ -450,8 +450,8 @@ impl PyIpcChannel {
     /// Receive a JSON object (uses Rust serde_json)
     fn recv_json(&mut self, py: Python<'_>) -> PyResult<PyObject> {
         let data = py.allow_threads(|| self.inner.recv_bytes())?;
-        let value: serde_json::Value = serde_json::from_slice(&data)
-            .map_err(|e| IpcError::deserialization(e.to_string()))?;
+        let value: serde_json::Value =
+            serde_json::from_slice(&data).map_err(|e| IpcError::deserialization(e.to_string()))?;
         json_value_to_py(py, &value)
     }
 }
@@ -658,7 +658,6 @@ impl PyGracefulNamedPipe {
         Ok(())
     }
 
-
     /// Shutdown with a timeout (in milliseconds)
     ///
     /// Combines shutdown() and drain() with a timeout.
@@ -806,8 +805,8 @@ impl PyGracefulIpcChannel {
     /// Receive a JSON object (uses Rust serde_json)
     fn recv_json(&mut self, py: Python<'_>) -> PyResult<PyObject> {
         let data = py.allow_threads(|| self.inner.recv_bytes())?;
-        let value: serde_json::Value = serde_json::from_slice(&data)
-            .map_err(|e| IpcError::deserialization(e.to_string()))?;
+        let value: serde_json::Value =
+            serde_json::from_slice(&data).map_err(|e| IpcError::deserialization(e.to_string()))?;
         json_value_to_py(py, &value)
     }
 }
@@ -826,7 +825,7 @@ pub fn ipckit_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PySharedMemory>()?;
     m.add_class::<PyIpcChannel>()?;
     m.add_class::<PyFileChannel>()?;
-    
+
     // Graceful shutdown classes
     m.add_class::<PyGracefulNamedPipe>()?;
     m.add_class::<PyGracefulIpcChannel>()?;
@@ -862,17 +861,17 @@ JSON utilities (faster than Python's json module):
 
 Example:
     import ipckit
-    
+
     # Using graceful shutdown
     channel = ipckit.GracefulIpcChannel.create('my_channel')
     channel.wait_for_client()
-    
+
     # ... use channel ...
-    
+
     # Graceful shutdown
     channel.shutdown()
     channel.drain()  # Wait for pending operations
-    
+
     # Or with timeout (in milliseconds)
     channel.shutdown_timeout(5000)
 ",

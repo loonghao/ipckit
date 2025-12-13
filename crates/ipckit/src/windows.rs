@@ -90,9 +90,9 @@ impl NamedPipeServer {
                 PIPE_ACCESS_DUPLEX,
                 PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
                 instances,
-                4096,  // Output buffer size
-                4096,  // Input buffer size
-                0,     // Default timeout
+                4096, // Output buffer size
+                4096, // Input buffer size
+                0,    // Default timeout
                 ptr::null(),
             )
         };
@@ -221,7 +221,7 @@ impl NamedPipeClient {
         if handle == INVALID_HANDLE_VALUE {
             let err = std::io::Error::last_os_error();
             return Err(match err.raw_os_error() {
-                Some(2) => IpcError::NotFound(pipe_name),   // ERROR_FILE_NOT_FOUND
+                Some(2) => IpcError::NotFound(pipe_name), // ERROR_FILE_NOT_FOUND
                 Some(5) => IpcError::PermissionDenied(pipe_name), // ERROR_ACCESS_DENIED
                 Some(231) => IpcError::InvalidState("All pipe instances are busy".into()), // ERROR_PIPE_BUSY
                 _ => IpcError::Io(err),
