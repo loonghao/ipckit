@@ -1,172 +1,353 @@
 name: Release
 
+# This workflow handles:
+# 1. Regular commits to main: Only runs release-please to check if a release PR should be created/updated
+# 2. release-please PR merge: Creates a release tag and triggers the full release process
+# 3. Tag push (ipckit-v*): Publishes to PyPI/crates.io and creates GitHub Release
+
 on:
   push:
+    branches:
+      - main
     tags:
-      - 'v*'
+      - 'ipckit-v*'  # release-please tag format: ipckit-v0.1.0
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to release (e.g., 0.1.0)'
-        required: true
-        type: string
+      force-rebuild:
+        description: 'Force rebuild wheels instead of reusing PR artifacts'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
-
-env:
-  CARGO_TERM_COLOR: always
+  pull-requests: write
+  issues: write
+  id-token: write
+  attestations: write
+  actions: read
 
 jobs:
-  # Build Python wheels for multiple platforms
-  build-wheels:
-    name: Build wheels (${{ matrix.os }}, ${{ matrix.target }})
-    runs-on: ${{ matrix.os }}
+  # Run release-please to create releases and tags
+  release-please:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      releases_created: ${{ steps.release.outputs.releases_created }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Determine if this is a tag push (for publishing)
+  check-tag:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/ipckit-v')
+    outputs:
+      is_tag: 'true'
+      tag_name: ${{ github.ref_name }}
+    steps:
+      - name: Tag detected
+        run: |
+          echo "Tag push detected: ${{ github.ref_name }}"
+          echo "This will trigger the full release process"
+
+  # Try to find and download pre-built wheels from PR checks
+  check-pr-artifacts:
+    name: Check PR Artifacts
+    runs-on: ubuntu-latest
+    needs: [release-please, check-tag]
+    if: |
+      always() &&
+      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
+       (needs.check-tag.result == 'success' && needs.check-tag.outputs.is_tag == 'true')) &&
+      !inputs.force-rebuild
+    outputs:
+      artifacts-available: ${{ steps.check.outputs.available }}
+      pr-run-id: ${{ steps.check.outputs.run_id }}
+      source-sha: ${{ steps.check.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find PR workflow run for this commit
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const targetSha = context.sha;
+            console.log(`Looking for artifacts built from commit: ${targetSha}`);
+
+            const { data: runs } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'pr-checks.yml',
+              status: 'success',
+              head_sha: targetSha,
+              per_page: 10
+            });
+
+            if (runs.workflow_runs.length === 0) {
+              console.log(`No PR workflow found for commit ${targetSha}`);
+              core.setOutput('available', 'false');
+              core.setOutput('run_id', '');
+              core.setOutput('source_sha', '');
+              return;
+            }
+
+            for (const run of runs.workflow_runs) {
+              console.log(`Checking run ${run.id} (commit: ${run.head_sha})`);
+
+              const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: run.id
+              });
+
+              const hasLinux = artifacts.artifacts.some(a => a.name === 'wheels-linux-x86_64');
+              const hasWindows = artifacts.artifacts.some(a => a.name === 'wheels-windows-x64');
+              const hasMacos = artifacts.artifacts.some(a => a.name === 'wheels-macos-universal2');
+
+              if (hasLinux && hasWindows && hasMacos) {
+                console.log(`Found matching artifacts from run ${run.id} (commit: ${targetSha})`);
+                core.setOutput('available', 'true');
+                core.setOutput('run_id', run.id.toString());
+                core.setOutput('source_sha', targetSha);
+                return;
+              }
+            }
+
+            console.log(`No suitable artifacts found for commit ${targetSha}, will rebuild`);
+            core.setOutput('available', 'false');
+            core.setOutput('run_id', '');
+            core.setOutput('source_sha', '');
+
+  # Download and re-upload artifacts from PR workflow (if available)
+  reuse-pr-wheels:
+    name: Reuse PR Wheels
+    runs-on: ubuntu-latest
+    needs: [release-please, check-tag, check-pr-artifacts]
+    if: |
+      always() &&
+      needs.check-pr-artifacts.result == 'success' &&
+      needs.check-pr-artifacts.outputs.artifacts-available == 'true'
     strategy:
-      fail-fast: false
       matrix:
-        include:
-          # Linux x86_64
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            manylinux: auto
-          # Linux aarch64
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            manylinux: auto
-          # Windows x86_64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            manylinux: auto
-          # Windows aarch64
-          - os: windows-latest
-            target: aarch64-pc-windows-msvc
-            manylinux: auto
-          # macOS x86_64
-          - os: macos-13
-            target: x86_64-apple-darwin
-            manylinux: auto
-          # macOS aarch64 (Apple Silicon)
-          - os: macos-14
-            target: aarch64-apple-darwin
-            manylinux: auto
+        artifact:
+          - wheels-linux-x86_64
+          - wheels-windows-x64
+          - wheels-macos-universal2
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.target }}
-          args: --release --out dist --find-interpreter
-          sccache: 'true'
-          manylinux: ${{ matrix.manylinux }}
-      
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels-${{ matrix.os }}-${{ matrix.target }}
-          path: dist/*.whl
-
-  # Build source distribution
-  build-sdist:
-    name: Build source distribution
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Build sdist
-        uses: PyO3/maturin-action@v1
-        with:
-          command: sdist
-          args: --out dist
-      
-      - name: Upload sdist
-        uses: actions/upload-artifact@v4
-        with:
-          name: sdist
-          path: dist/*.tar.gz
-
-  # Publish to PyPI
-  publish-pypi:
-    name: Publish to PyPI
-    needs: [build-wheels, build-sdist]
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/project/ipckit/
-    permissions:
-      id-token: write
-    steps:
-      - name: Download all artifacts
+      - name: Download artifact from PR workflow
         uses: actions/download-artifact@v4
         with:
+          name: ${{ matrix.artifact }}
+          path: dist/
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ needs.check-pr-artifacts.outputs.pr-run-id }}
+        continue-on-error: true
+
+      - name: Re-upload artifact for release
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Build wheels if PR artifacts not available
+  build-wheels:
+    needs: [release-please, check-tag, check-pr-artifacts]
+    if: |
+      always() &&
+      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
+       (needs.check-tag.result == 'success' && needs.check-tag.outputs.is_tag == 'true')) &&
+      (needs.check-pr-artifacts.result != 'success' || needs.check-pr-artifacts.outputs.artifacts-available != 'true' || inputs.force-rebuild)
+    uses: ./.github/workflows/build-wheels.yml
+    permissions:
+      contents: read
+      actions: write
+      id-token: write
+
+  # Publish to PyPI
+  pypi-publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: [release-please, check-tag, check-pr-artifacts, reuse-pr-wheels, build-wheels]
+    if: |
+      always() &&
+      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
+       (needs.check-tag.result == 'success' && needs.check-tag.outputs.is_tag == 'true')) &&
+      (needs.reuse-pr-wheels.result == 'success' || needs.build-wheels.result == 'success')
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ipckit
+    permissions:
+      id-token: write
+      contents: write
+      attestations: write
+
+    steps:
+      - name: Download wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
           path: dist
           merge-multiple: true
-      
+
+      - name: List downloaded artifacts
+        run: |
+          ls -la dist/
+          echo "Total files: $(ls -1 dist/ | wc -l)"
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: dist/
-          # Use trusted publishing (OIDC) - no token needed
-          # Or use PYPI_API_TOKEN secret
+          packages-dir: dist
+          verbose: true
+          print-hash: true
+          skip-existing: true
 
   # Publish to crates.io
-  publish-crates:
+  crates-publish:
     name: Publish to crates.io
     runs-on: ubuntu-latest
+    needs: [release-please, check-tag]
+    if: |
+      always() &&
+      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
+       (needs.check-tag.result == 'success' && needs.check-tag.outputs.is_tag == 'true'))
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-      
+
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
-      
+
       - name: Publish to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
-          cargo publish -p ipckit --allow-dirty
+          cargo publish -p ipckit --allow-dirty || echo "Package may already exist"
 
   # Create GitHub Release
   github-release:
     name: Create GitHub Release
-    needs: [publish-pypi, publish-crates]
     runs-on: ubuntu-latest
+    needs: [release-please, check-tag, check-pr-artifacts, pypi-publish, crates-publish, reuse-pr-wheels, build-wheels]
+    if: |
+      always() &&
+      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
+       (needs.check-tag.result == 'success' && needs.check-tag.outputs.is_tag == 'true')) &&
+      (needs.reuse-pr-wheels.result == 'success' || needs.build-wheels.result == 'success' || needs.reuse-pr-wheels.result == 'skipped')
     permissions:
       contents: write
+      actions: read
+      attestations: write
+
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Download all artifacts
+        with:
+          fetch-depth: 0
+
+      - name: Determine tag name
+        id: tag
+        run: |
+          if [ "${{ needs.release-please.outputs.tag_name }}" != "" ]; then
+            echo "TAG_NAME=${{ needs.release-please.outputs.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG_NAME=${{ needs.check-tag.outputs.tag_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate changelog
+        id: changelog
+        uses: jaywcjlove/changelog-generator@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          filter-author: (loonghao|renovate\\[bot\\]|dependabot\\[bot\\]|Renovate Bot)
+          filter: ''
+          template: |
+            ## Bugs
+            {{fix}}
+
+            ## Feature
+            {{feat}}
+
+            ## Improve
+            {{refactor,perf,clean}}
+
+            ## Misc
+            {{chore,style,ci,build||🔧 Nothing changed}}
+
+            ## Unknown
+            {{__unknown__}}
+
+      - name: Download wheel artifacts
         uses: actions/download-artifact@v4
         with:
-          path: dist
+          pattern: wheels-*
+          path: release-artifacts
           merge-multiple: true
-      
-      - name: Get version
-        id: version
+
+      - name: List release artifacts
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          echo "Release artifacts:"
+          ls -la release-artifacts/ || echo "No artifacts found"
+
+      - name: Document artifact source
+        id: artifact-source
+        run: |
+          if [ "${{ needs.check-pr-artifacts.outputs.artifacts-available }}" == "true" ]; then
+            echo "ARTIFACT_SOURCE=✅ **Reused from PR workflow** (Run: [${{ needs.check-pr-artifacts.outputs.pr-run-id }}](https://github.com/${{ github.repository }}/actions/runs/${{ needs.check-pr-artifacts.outputs.pr-run-id }}), SHA: \`${{ needs.check-pr-artifacts.outputs.source-sha }}\`)" >> $GITHUB_OUTPUT
           else
-            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+            echo "ARTIFACT_SOURCE=🔨 **Built fresh in release workflow** (SHA: \`${{ github.sha }}\`)" >> $GITHUB_OUTPUT
           fi
-      
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: Release v${{ steps.version.outputs.version }}
+          artifacts: "release-artifacts/*"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.tag.outputs.TAG_NAME }}
+          name: ${{ steps.tag.outputs.TAG_NAME }}
+          body: |
+            Comparing Changes: ${{ steps.changelog.outputs.compareurl }}
+
+            ${{ steps.changelog.outputs.changelog }}
+
+            ---
+
+            ### Installation
+
+            **Python:**
+            ```bash
+            pip install ipckit==${{ steps.tag.outputs.TAG_NAME }}
+            ```
+
+            **Rust:**
+            ```toml
+            [dependencies]
+            ipckit = "${{ steps.tag.outputs.TAG_NAME }}"
+            ```
+
+            ---
+
+            ### Build Artifacts Source
+            ${{ steps.artifact-source.outputs.ARTIFACT_SOURCE }}
           draft: false
           prerelease: false
-          generate_release_notes: true
-          files: |
-            dist/*.whl
-            dist/*.tar.gz
+          allowUpdates: true
+          skipIfReleaseExists: false
+          updateOnlyUnreleased: false
+          makeLatest: true

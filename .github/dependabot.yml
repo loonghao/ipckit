@@ -1,5 +1,12 @@
 version: 2
 updates:
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
   # Rust dependencies
   - package-ecosystem: "cargo"
     directory: "/"
@@ -10,13 +17,6 @@ updates:
       rust-dependencies:
         patterns:
           - "*"
-
-  # GitHub Actions
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
 
   # Python dependencies
   - package-ecosystem: "pip"
