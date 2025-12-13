@@ -18,20 +18,20 @@
 //! fn main() -> Result<(), IpcError> {
 //!     // Create a named pipe server
 //!     let server = NamedPipe::create("my_pipe")?;
-//!     
+//!
 //!     // In another process, connect as client
 //!     // let client = NamedPipe::connect("my_pipe")?;
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
 
-pub mod error;
-pub mod pipe;
-pub mod shm;
 pub mod channel;
+pub mod error;
 pub mod file_channel;
 pub mod graceful;
+pub mod pipe;
+pub mod shm;
 
 #[cfg(unix)]
 pub mod unix;
@@ -40,15 +40,15 @@ pub mod unix;
 pub mod windows;
 
 // Re-exports
+pub use channel::{IpcChannel, IpcReceiver, IpcSender};
 pub use error::{IpcError, Result};
-pub use pipe::{AnonymousPipe, NamedPipe, PipeReader, PipeWriter};
-pub use shm::SharedMemory;
-pub use channel::{IpcChannel, IpcSender, IpcReceiver};
 pub use file_channel::{FileChannel, FileMessage, MessageType};
 pub use graceful::{
-    GracefulChannel, GracefulIpcChannel, GracefulNamedPipe, 
-    GracefulWrapper, ShutdownState, OperationGuard
+    GracefulChannel, GracefulIpcChannel, GracefulNamedPipe, GracefulWrapper, OperationGuard,
+    ShutdownState,
 };
+pub use pipe::{AnonymousPipe, NamedPipe, PipeReader, PipeWriter};
+pub use shm::SharedMemory;
 
 // Python bindings
 #[cfg(feature = "python-bindings")]

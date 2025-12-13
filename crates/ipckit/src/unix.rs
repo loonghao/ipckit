@@ -134,12 +134,7 @@ pub fn socketpair() -> Result<(OwnedFd, OwnedFd)> {
         return Err(IpcError::Io(std::io::Error::last_os_error()));
     }
 
-    Ok(unsafe {
-        (
-            OwnedFd::from_raw_fd(fds[0]),
-            OwnedFd::from_raw_fd(fds[1]),
-        )
-    })
+    Ok(unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) })
 }
 
 /// Signal handling utilities

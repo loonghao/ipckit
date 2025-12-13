@@ -98,13 +98,13 @@ impl ShutdownState {
             return Err(IpcError::Closed);
         }
         self.pending_count.fetch_add(1, Ordering::SeqCst);
-        
+
         // Double-check after incrementing to prevent race condition
         if self.is_shutdown() {
             self.pending_count.fetch_sub(1, Ordering::SeqCst);
             return Err(IpcError::Closed);
         }
-        
+
         Ok(OperationGuard { state: self })
     }
 
@@ -320,11 +320,11 @@ impl Read for GracefulNamedPipe {
                 "Channel is shutdown",
             ));
         }
-        
+
         let _guard = self.state.begin_operation().map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::BrokenPipe, "Channel is shutdown")
         })?;
-        
+
         self.inner.read(buf)
     }
 }
@@ -337,11 +337,11 @@ impl Write for GracefulNamedPipe {
                 "Channel is shutdown",
             ));
         }
-        
+
         let _guard = self.state.begin_operation().map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::BrokenPipe, "Channel is shutdown")
         })?;
-        
+
         self.inner.write(buf)
     }
 
@@ -455,7 +455,7 @@ impl GracefulIpcChannel<Vec<u8>> {
         if self.state.is_shutdown() {
             return Err(IpcError::Closed);
         }
-        
+
         let _guard = self.state.begin_operation()?;
         self.inner.send_bytes(data)
     }
@@ -465,7 +465,7 @@ impl GracefulIpcChannel<Vec<u8>> {
         if self.state.is_shutdown() {
             return Err(IpcError::Closed);
         }
-        
+
         let _guard = self.state.begin_operation()?;
         self.inner.recv_bytes()
     }
@@ -477,7 +477,7 @@ impl<T: Serialize + DeserializeOwned> GracefulIpcChannel<T> {
         if self.state.is_shutdown() {
             return Err(IpcError::Closed);
         }
-        
+
         let _guard = self.state.begin_operation()?;
         self.inner.send(msg)
     }
@@ -487,7 +487,7 @@ impl<T: Serialize + DeserializeOwned> GracefulIpcChannel<T> {
         if self.state.is_shutdown() {
             return Err(IpcError::Closed);
         }
-        
+
         let _guard = self.state.begin_operation()?;
         self.inner.recv()
     }
@@ -502,40 +502,40 @@ mod tests {
     #[test]
     fn test_shutdown_state() {
         let state = ShutdownState::new();
-        
+
         assert!(!state.is_shutdown());
         assert_eq!(state.pending_count(), 0);
-        
+
         state.shutdown();
-        
+
         assert!(state.is_shutdown());
     }
 
     #[test]
     fn test_operation_guard() {
         let state = ShutdownState::new();
-        
+
         {
             let _guard = state.begin_operation().unwrap();
             assert_eq!(state.pending_count(), 1);
-            
+
             {
                 let _guard2 = state.begin_operation().unwrap();
                 assert_eq!(state.pending_count(), 2);
             }
-            
+
             assert_eq!(state.pending_count(), 1);
         }
-        
+
         assert_eq!(state.pending_count(), 0);
     }
 
     #[test]
     fn test_operation_after_shutdown() {
         let state = ShutdownState::new();
-        
+
         state.shutdown();
-        
+
         let result = state.begin_operation();
         assert!(result.is_err());
     }
@@ -544,20 +544,20 @@ mod tests {
     fn test_drain() {
         let state = Arc::new(ShutdownState::new());
         let state_clone = Arc::clone(&state);
-        
+
         // Start a background operation
         let handle = thread::spawn(move || {
             let _guard = state_clone.begin_operation().unwrap();
             thread::sleep(Duration::from_millis(50));
         });
-        
+
         // Give the thread time to start
         thread::sleep(Duration::from_millis(10));
-        
+
         // Shutdown and drain
         state.shutdown();
         let result = state.wait_for_drain(Some(Duration::from_secs(1)));
-        
+
         handle.join().unwrap();
         assert!(result.is_ok());
     }
@@ -566,22 +566,22 @@ mod tests {
     fn test_drain_timeout() {
         let state = Arc::new(ShutdownState::new());
         let state_clone = Arc::clone(&state);
-        
+
         // Start a long background operation
         let handle = thread::spawn(move || {
             let _guard = state_clone.begin_operation().unwrap();
             thread::sleep(Duration::from_secs(10));
         });
-        
+
         // Give the thread time to start
         thread::sleep(Duration::from_millis(10));
-        
+
         // Shutdown with short timeout
         state.shutdown();
         let result = state.wait_for_drain(Some(Duration::from_millis(50)));
-        
+
         assert!(matches!(result, Err(IpcError::Timeout)));
-        
+
         // Clean up - we need to wait for the thread
         drop(state);
         // The thread will eventually finish
@@ -591,75 +591,75 @@ mod tests {
     #[test]
     fn test_graceful_wrapper() {
         let wrapper = GracefulWrapper::new(42);
-        
+
         assert!(!wrapper.is_shutdown());
         assert_eq!(*wrapper.inner(), 42);
-        
+
         wrapper.shutdown();
-        
+
         assert!(wrapper.is_shutdown());
     }
 
     #[test]
     fn test_graceful_named_pipe() {
         let name = format!("test_graceful_pipe_{}", std::process::id());
-        
+
         let handle = thread::spawn({
             let name = name.clone();
             move || {
                 let mut server = GracefulNamedPipe::create(&name).unwrap();
                 server.wait_for_client().ok();
-                
+
                 let mut buf = [0u8; 32];
                 let n = server.read(&mut buf).unwrap();
                 assert_eq!(&buf[..n], b"Hello!");
-                
+
                 // Shutdown
                 server.shutdown();
                 assert!(server.is_shutdown());
-                
+
                 // Operations after shutdown should fail
                 let result = server.write(b"test");
                 assert!(result.is_err());
             }
         });
-        
+
         thread::sleep(Duration::from_millis(100));
-        
+
         let mut client = GracefulNamedPipe::connect(&name).unwrap();
         client.write_all(b"Hello!").unwrap();
-        
+
         handle.join().unwrap();
     }
 
     #[test]
     fn test_graceful_ipc_channel() {
         let name = format!("test_graceful_channel_{}", std::process::id());
-        
+
         let handle = thread::spawn({
             let name = name.clone();
             move || {
                 let mut server = GracefulIpcChannel::<Vec<u8>>::create(&name).unwrap();
                 server.wait_for_client().ok();
-                
+
                 let data = server.recv_bytes().unwrap();
                 assert_eq!(data, b"Hello, IPC!");
-                
+
                 // Shutdown
                 server.shutdown();
                 assert!(server.is_shutdown());
-                
+
                 // Operations after shutdown should fail
                 let result = server.recv_bytes();
                 assert!(matches!(result, Err(IpcError::Closed)));
             }
         });
-        
+
         thread::sleep(Duration::from_millis(100));
-        
+
         let mut client = GracefulIpcChannel::<Vec<u8>>::connect(&name).unwrap();
         client.send_bytes(b"Hello, IPC!").unwrap();
-        
+
         handle.join().unwrap();
     }
 }

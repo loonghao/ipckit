@@ -139,10 +139,10 @@ impl FileChannel {
     /// * `is_backend` - True for backend side, false for frontend side
     pub fn new<P: AsRef<Path>>(dir: P, is_backend: bool) -> Result<Self> {
         let dir = dir.as_ref().to_path_buf();
-        
+
         // Create directory if not exists
         fs::create_dir_all(&dir)?;
-        
+
         // Determine file paths based on role
         let (outbox_path, inbox_path) = if is_backend {
             (
@@ -155,7 +155,7 @@ impl FileChannel {
                 dir.join("backend_to_frontend.json"),
             )
         };
-        
+
         // Create channel info file
         let info_path = dir.join(".channel_info");
         if !info_path.exists() {
@@ -166,14 +166,14 @@ impl FileChannel {
             });
             fs::write(&info_path, serde_json::to_string_pretty(&info).unwrap())?;
         }
-        
+
         // Initialize empty message files if not exist
         for path in [&outbox_path, &inbox_path] {
             if !path.exists() {
                 fs::write(path, "[]")?;
             }
         }
-        
+
         Ok(Self {
             dir,
             outbox_path,
@@ -202,26 +202,26 @@ impl FileChannel {
     pub fn send(&self, message: &FileMessage) -> Result<()> {
         let lock_path = self.outbox_path.with_extension("lock");
         let _lock = FileLock::acquire(&lock_path)?;
-        
+
         // Read existing messages
         let mut messages = self.read_message_file(&self.outbox_path)?;
-        
+
         // Add new message
         messages.push(message.clone());
-        
+
         // Keep only recent messages (last 100)
         if messages.len() > 100 {
             let skip_count = messages.len() - 100;
             messages = messages.into_iter().skip(skip_count).collect();
         }
-        
+
         // Write back atomically
         let temp_path = self.outbox_path.with_extension("tmp");
         let content = serde_json::to_string_pretty(&messages)
             .map_err(|e| IpcError::serialization(e.to_string()))?;
         fs::write(&temp_path, &content)?;
         fs::rename(&temp_path, &self.outbox_path)?;
-        
+
         Ok(())
     }
 
@@ -254,7 +254,7 @@ impl FileChannel {
     /// Receive new messages from inbox
     pub fn recv(&mut self) -> Result<Vec<FileMessage>> {
         let messages = self.read_message_file(&self.inbox_path)?;
-        
+
         // Filter to only new messages
         let new_messages: Vec<FileMessage> = messages
             .into_iter()
@@ -264,13 +264,13 @@ impl FileChannel {
                         && self.last_inbox_id.as_ref() != Some(&m.id))
             })
             .collect();
-        
+
         // Update last processed
         if let Some(last) = new_messages.last() {
             self.last_inbox_timestamp = last.timestamp;
             self.last_inbox_id = Some(last.id.clone());
         }
-        
+
         Ok(new_messages)
     }
 
@@ -284,10 +284,10 @@ impl FileChannel {
     pub fn wait_response(&mut self, request_id: &str, timeout: Duration) -> Result<FileMessage> {
         let start = std::time::Instant::now();
         let poll_interval = Duration::from_millis(50);
-        
+
         loop {
             let messages = self.recv()?;
-            
+
             for msg in messages {
                 if msg.msg_type == MessageType::Response
                     && msg.reply_to.as_ref() == Some(&request_id.to_string())
@@ -295,11 +295,11 @@ impl FileChannel {
                     return Ok(msg);
                 }
             }
-            
+
             if start.elapsed() > timeout {
                 return Err(IpcError::Timeout);
             }
-            
+
             std::thread::sleep(poll_interval);
         }
     }
@@ -311,13 +311,13 @@ impl FileChannel {
     {
         loop {
             let messages = self.recv()?;
-            
+
             for msg in messages {
                 if !callback(msg) {
                     return Ok(());
                 }
             }
-            
+
             std::thread::sleep(interval);
         }
     }
@@ -334,12 +334,12 @@ impl FileChannel {
         if !path.exists() {
             return Ok(Vec::new());
         }
-        
+
         let content = fs::read_to_string(path)?;
         if content.trim().is_empty() || content.trim() == "[]" {
             return Ok(Vec::new());
         }
-        
+
         serde_json::from_str(&content).map_err(|e| IpcError::deserialization(e.to_string()))
     }
 }
@@ -354,13 +354,9 @@ impl FileLock {
         let path = path.to_path_buf();
         let max_attempts = 50;
         let wait_time = Duration::from_millis(10);
-        
+
         for _ in 0..max_attempts {
-            match OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&path)
-            {
+            match OpenOptions::new().write(true).create_new(true).open(&path) {
                 Ok(mut file) => {
                     // Write PID to lock file
                     let _ = writeln!(file, "{}", std::process::id());
@@ -371,7 +367,7 @@ impl FileLock {
                 }
             }
         }
-        
+
         // Force acquire if lock is stale (older than 5 seconds)
         if let Ok(metadata) = fs::metadata(&path) {
             if let Ok(modified) = metadata.modified() {
@@ -381,7 +377,7 @@ impl FileLock {
                 }
             }
         }
-        
+
         Err(IpcError::Timeout)
     }
 }
@@ -396,18 +392,18 @@ impl Drop for FileLock {
 fn uuid_v4() -> String {
     use std::collections::hash_map::RandomState;
     use std::hash::{BuildHasher, Hasher};
-    
+
     let state = RandomState::new();
     let mut hasher = state.build_hasher();
     hasher.write_u64(current_timestamp_ms());
     hasher.write_usize(std::process::id() as usize);
     let h1 = hasher.finish();
-    
+
     let state2 = RandomState::new();
     let mut hasher2 = state2.build_hasher();
     hasher2.write_u64(h1);
     let h2 = hasher2.finish();
-    
+
     format!(
         "{:08x}-{:04x}-4{:03x}-{:04x}-{:012x}",
         (h1 >> 32) as u32,
@@ -435,24 +431,24 @@ mod tests {
     #[test]
     fn test_file_channel_basic() {
         let dir = tempdir().unwrap();
-        
+
         let mut backend = FileChannel::backend(dir.path()).unwrap();
         let mut frontend = FileChannel::frontend(dir.path()).unwrap();
-        
+
         // Backend sends request
         let msg = FileMessage::request("ping", serde_json::json!({}));
         backend.send(&msg).unwrap();
-        
+
         // Frontend receives
         let received = frontend.recv().unwrap();
         assert_eq!(received.len(), 1);
         assert_eq!(received[0].method.as_ref().unwrap(), "ping");
-        
+
         // Frontend sends response
         frontend
             .send_response(&received[0].id, serde_json::json!({"pong": true}))
             .unwrap();
-        
+
         // Backend receives response
         let responses = backend.recv().unwrap();
         assert_eq!(responses.len(), 1);
@@ -463,13 +459,13 @@ mod tests {
     fn test_file_channel_concurrent() {
         let dir = tempdir().unwrap();
         let dir_path = dir.path().to_path_buf();
-        
+
         let handle = thread::spawn({
             let dir_path = dir_path.clone();
             move || {
                 let mut frontend = FileChannel::frontend(&dir_path).unwrap();
                 thread::sleep(Duration::from_millis(100));
-                
+
                 // Wait for request
                 loop {
                     let msgs = frontend.recv().unwrap();
@@ -485,17 +481,17 @@ mod tests {
                 }
             }
         });
-        
+
         let mut backend = FileChannel::backend(&dir_path).unwrap();
         let request_id = backend
             .send_request("test", serde_json::json!({"value": 42}))
             .unwrap();
-        
+
         let response = backend
             .wait_response(&request_id, Duration::from_secs(5))
             .unwrap();
         assert!(response.payload.get("ok").unwrap().as_bool().unwrap());
-        
+
         handle.join().unwrap();
     }
 }
