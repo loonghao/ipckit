@@ -60,6 +60,10 @@ pub enum IpcError {
     /// Would block (for non-blocking operations)
     #[error("Operation would block")]
     WouldBlock,
+
+    /// Other error
+    #[error("{0}")]
+    Other(String),
 }
 
 impl IpcError {
@@ -111,6 +115,7 @@ impl From<IpcError> for pyo3::PyErr {
             IpcError::Platform(s) => PyOSError::new_err(s),
             IpcError::InvalidState(s) => PyRuntimeError::new_err(s),
             IpcError::WouldBlock => PyBlockingIOError::new_err("Operation would block"),
+            IpcError::Other(s) => PyRuntimeError::new_err(s),
         }
     }
 }
