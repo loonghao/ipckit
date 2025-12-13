@@ -148,16 +148,14 @@ impl NamedPipe {
 #[cfg(unix)]
 impl std::os::unix::io::AsRawFd for PipeReader {
     fn as_raw_fd(&self) -> std::os::unix::io::RawFd {
-        use std::os::unix::io::AsRawFd;
-        self.inner.as_raw_fd()
+        std::os::unix::io::AsRawFd::as_raw_fd(&self.inner)
     }
 }
 
 #[cfg(unix)]
 impl std::os::unix::io::AsRawFd for PipeWriter {
     fn as_raw_fd(&self) -> std::os::unix::io::RawFd {
-        use std::os::unix::io::AsRawFd;
-        self.inner.as_raw_fd()
+        std::os::unix::io::AsRawFd::as_raw_fd(&self.inner)
     }
 }
 
