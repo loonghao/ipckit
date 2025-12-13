@@ -14,11 +14,10 @@ use crate::file_channel::{
 };
 use crate::graceful::{
     GracefulChannel, GracefulIpcChannel as RustGracefulIpcChannel,
-    GracefulNamedPipe as RustGracefulNamedPipe, ShutdownState,
+    GracefulNamedPipe as RustGracefulNamedPipe,
 };
 use crate::pipe::{AnonymousPipe as RustAnonymousPipe, NamedPipe as RustNamedPipe};
 use crate::shm::SharedMemory as RustSharedMemory;
-use std::sync::Arc;
 
 // ============================================================================
 // JSON Conversion Utilities (Rust-native, no Python json module dependency)
@@ -281,35 +280,40 @@ impl PyNamedPipe {
     }
 
     /// Wait for a client to connect (server only)
-    fn wait_for_client(&self) -> PyResult<()> {
-        self.inner.wait_for_client()?;
+    fn wait_for_client(&self, py: Python<'_>) -> PyResult<()> {
+        // Release GIL to allow other Python threads to run
+        py.allow_threads(|| self.inner.wait_for_client())?;
         Ok(())
     }
 
     /// Read data from the pipe
     fn read(&mut self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
         let mut buf = vec![0u8; size];
-        let n = self.inner.read(&mut buf)?;
+        // Release GIL during blocking read
+        let n = py.allow_threads(|| self.inner.read(&mut buf))?;
         buf.truncate(n);
         Ok(PyBytes::new(py, &buf).into())
     }
 
     /// Write data to the pipe
-    fn write(&mut self, data: &[u8]) -> PyResult<usize> {
-        let n = self.inner.write(data)?;
+    fn write(&mut self, py: Python<'_>, data: Vec<u8>) -> PyResult<usize> {
+        // Release GIL during write
+        let n = py.allow_threads(|| self.inner.write(&data))?;
         Ok(n)
     }
 
     /// Read exact number of bytes
     fn read_exact(&mut self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
         let mut buf = vec![0u8; size];
-        self.inner.read_exact(&mut buf)?;
+        // Release GIL during blocking read
+        py.allow_threads(|| self.inner.read_exact(&mut buf))?;
         Ok(PyBytes::new(py, &buf).into())
     }
 
     /// Write all data
-    fn write_all(&mut self, data: &[u8]) -> PyResult<()> {
-        self.inner.write_all(data)?;
+    fn write_all(&mut self, py: Python<'_>, data: Vec<u8>) -> PyResult<()> {
+        // Release GIL during write
+        py.allow_threads(|| self.inner.write_all(&data))?;
         Ok(())
     }
 }
@@ -416,35 +420,36 @@ impl PyIpcChannel {
     }
 
     /// Wait for a client to connect (server only)
-    fn wait_for_client(&self) -> PyResult<()> {
-        self.inner.wait_for_client()?;
+    fn wait_for_client(&self, py: Python<'_>) -> PyResult<()> {
+        // Release GIL to allow other Python threads to run
+        py.allow_threads(|| self.inner.wait_for_client())?;
         Ok(())
     }
 
     /// Send bytes through the channel
-    fn send(&mut self, data: &[u8]) -> PyResult<()> {
-        self.inner.send_bytes(data)?;
+    fn send(&mut self, py: Python<'_>, data: Vec<u8>) -> PyResult<()> {
+        py.allow_threads(|| self.inner.send_bytes(&data))?;
         Ok(())
     }
 
     /// Receive bytes from the channel
     fn recv(&mut self, py: Python<'_>) -> PyResult<Py<PyBytes>> {
-        let data = self.inner.recv_bytes()?;
+        let data = py.allow_threads(|| self.inner.recv_bytes())?;
         Ok(PyBytes::new(py, &data).into())
     }
 
     /// Send a JSON-serializable object (uses Rust serde_json)
-    fn send_json(&mut self, obj: &Bound<'_, PyAny>) -> PyResult<()> {
+    fn send_json(&mut self, py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<()> {
         let value = py_to_json_value(obj)?;
         let json_bytes = serde_json::to_vec(&value)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-        self.inner.send_bytes(&json_bytes)?;
+        py.allow_threads(|| self.inner.send_bytes(&json_bytes))?;
         Ok(())
     }
 
     /// Receive a JSON object (uses Rust serde_json)
     fn recv_json(&mut self, py: Python<'_>) -> PyResult<PyObject> {
-        let data = self.inner.recv_bytes()?;
+        let data = py.allow_threads(|| self.inner.recv_bytes())?;
         let value: serde_json::Value = serde_json::from_slice(&data)
             .map_err(|e| IpcError::deserialization(e.to_string()))?;
         json_value_to_py(py, &value)
@@ -631,8 +636,9 @@ impl PyGracefulNamedPipe {
     }
 
     /// Wait for a client to connect (server only)
-    fn wait_for_client(&self) -> PyResult<()> {
-        self.inner.wait_for_client()?;
+    fn wait_for_client(&self, py: Python<'_>) -> PyResult<()> {
+        // Release GIL to allow other Python threads to run
+        py.allow_threads(|| self.inner.wait_for_client())?;
         Ok(())
     }
 
@@ -647,45 +653,50 @@ impl PyGracefulNamedPipe {
     }
 
     /// Wait for all pending operations to complete
-    fn drain(&self) -> PyResult<()> {
-        self.inner.drain()?;
+    fn drain(&self, py: Python<'_>) -> PyResult<()> {
+        py.allow_threads(|| self.inner.drain())?;
         Ok(())
     }
+
 
     /// Shutdown with a timeout (in milliseconds)
     ///
     /// Combines shutdown() and drain() with a timeout.
     /// Raises TimeoutError if the drain doesn't complete within the timeout.
-    fn shutdown_timeout(&self, timeout_ms: u64) -> PyResult<()> {
+    fn shutdown_timeout(&self, py: Python<'_>, timeout_ms: u64) -> PyResult<()> {
         let timeout = Duration::from_millis(timeout_ms);
-        self.inner.shutdown_timeout(timeout)?;
+        py.allow_threads(|| self.inner.shutdown_timeout(timeout))?;
         Ok(())
     }
 
     /// Read data from the pipe
     fn read(&mut self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
         let mut buf = vec![0u8; size];
-        let n = self.inner.read(&mut buf)?;
+        // Release GIL during blocking read
+        let n = py.allow_threads(|| self.inner.read(&mut buf))?;
         buf.truncate(n);
         Ok(PyBytes::new(py, &buf).into())
     }
 
     /// Write data to the pipe
-    fn write(&mut self, data: &[u8]) -> PyResult<usize> {
-        let n = self.inner.write(data)?;
+    fn write(&mut self, py: Python<'_>, data: Vec<u8>) -> PyResult<usize> {
+        // Release GIL during write
+        let n = py.allow_threads(|| self.inner.write(&data))?;
         Ok(n)
     }
 
     /// Read exact number of bytes
     fn read_exact(&mut self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
         let mut buf = vec![0u8; size];
-        self.inner.read_exact(&mut buf)?;
+        // Release GIL during blocking read
+        py.allow_threads(|| self.inner.read_exact(&mut buf))?;
         Ok(PyBytes::new(py, &buf).into())
     }
 
     /// Write all data
-    fn write_all(&mut self, data: &[u8]) -> PyResult<()> {
-        self.inner.write_all(data)?;
+    fn write_all(&mut self, py: Python<'_>, data: Vec<u8>) -> PyResult<()> {
+        // Release GIL during write
+        py.allow_threads(|| self.inner.write_all(&data))?;
         Ok(())
     }
 }
@@ -739,8 +750,9 @@ impl PyGracefulIpcChannel {
     }
 
     /// Wait for a client to connect (server only)
-    fn wait_for_client(&self) -> PyResult<()> {
-        self.inner.wait_for_client()?;
+    fn wait_for_client(&self, py: Python<'_>) -> PyResult<()> {
+        // Release GIL to allow other Python threads to run
+        py.allow_threads(|| self.inner.wait_for_client())?;
         Ok(())
     }
 
@@ -755,8 +767,8 @@ impl PyGracefulIpcChannel {
     }
 
     /// Wait for all pending operations to complete
-    fn drain(&self) -> PyResult<()> {
-        self.inner.drain()?;
+    fn drain(&self, py: Python<'_>) -> PyResult<()> {
+        py.allow_threads(|| self.inner.drain())?;
         Ok(())
     }
 
@@ -764,36 +776,36 @@ impl PyGracefulIpcChannel {
     ///
     /// Combines shutdown() and drain() with a timeout.
     /// Raises TimeoutError if the drain doesn't complete within the timeout.
-    fn shutdown_timeout(&self, timeout_ms: u64) -> PyResult<()> {
+    fn shutdown_timeout(&self, py: Python<'_>, timeout_ms: u64) -> PyResult<()> {
         let timeout = Duration::from_millis(timeout_ms);
-        self.inner.shutdown_timeout(timeout)?;
+        py.allow_threads(|| self.inner.shutdown_timeout(timeout))?;
         Ok(())
     }
 
     /// Send bytes through the channel
-    fn send(&mut self, data: &[u8]) -> PyResult<()> {
-        self.inner.send_bytes(data)?;
+    fn send(&mut self, py: Python<'_>, data: Vec<u8>) -> PyResult<()> {
+        py.allow_threads(|| self.inner.send_bytes(&data))?;
         Ok(())
     }
 
     /// Receive bytes from the channel
     fn recv(&mut self, py: Python<'_>) -> PyResult<Py<PyBytes>> {
-        let data = self.inner.recv_bytes()?;
+        let data = py.allow_threads(|| self.inner.recv_bytes())?;
         Ok(PyBytes::new(py, &data).into())
     }
 
     /// Send a JSON-serializable object (uses Rust serde_json)
-    fn send_json(&mut self, obj: &Bound<'_, PyAny>) -> PyResult<()> {
+    fn send_json(&mut self, py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<()> {
         let value = py_to_json_value(obj)?;
         let json_bytes = serde_json::to_vec(&value)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-        self.inner.send_bytes(&json_bytes)?;
+        py.allow_threads(|| self.inner.send_bytes(&json_bytes))?;
         Ok(())
     }
 
     /// Receive a JSON object (uses Rust serde_json)
     fn recv_json(&mut self, py: Python<'_>) -> PyResult<PyObject> {
-        let data = self.inner.recv_bytes()?;
+        let data = py.allow_threads(|| self.inner.recv_bytes())?;
         let value: serde_json::Value = serde_json::from_slice(&data)
             .map_err(|e| IpcError::deserialization(e.to_string()))?;
         json_value_to_py(py, &value)
