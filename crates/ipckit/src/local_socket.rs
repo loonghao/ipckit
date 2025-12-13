@@ -151,6 +151,8 @@ pub use interprocess_backend::{LocalSocketListener, LocalSocketStream};
 #[cfg(not(feature = "backend-interprocess"))]
 mod native_backend {
     use super::*;
+    #[cfg(unix)]
+    use crate::error::IpcError;
 
     #[cfg(unix)]
     use std::os::unix::net::{UnixListener, UnixStream};
