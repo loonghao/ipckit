@@ -22,6 +22,7 @@ A high-performance, cross-platform IPC (Inter-Process Communication) library for
 - 🔒 **Thread-Safe** - Safe concurrent access across processes
 - ⚡ **Native JSON** - Built-in fast JSON serialization using Rust's serde_json
 - 🛡️ **Graceful Shutdown** - Built-in support for graceful channel shutdown
+- 🔌 **Local Socket** - Unix Domain Socket / Named Pipe abstraction for cross-platform socket communication
 
 ## 📦 Installation
 
@@ -257,6 +258,55 @@ fn main() -> ipckit::Result<()> {
 - Tracks pending operations with RAII guards
 - Configurable drain timeout
 
+### Local Socket (Cross-Platform Socket Communication)
+
+Local sockets provide a unified API for Unix Domain Sockets (Unix/macOS) and Named Pipes (Windows).
+
+**Python Server:**
+```python
+import ipckit
+
+# Create server
+server = ipckit.LocalSocketListener.bind("my_socket")
+print("Waiting for client...")
+
+# Accept connection
+stream = server.accept()
+
+# Receive and send data
+data = stream.read(1024)
+print(f"Received: {data}")
+stream.write(b"Hello from server!")
+
+# JSON communication
+json_data = stream.recv_json()
+stream.send_json({"status": "ok", "message": "received"})
+```
+
+**Python Client:**
+```python
+import ipckit
+
+# Connect to server
+stream = ipckit.LocalSocketStream.connect("my_socket")
+
+# Send and receive data
+stream.write(b"Hello from client!")
+response = stream.read(1024)
+print(f"Response: {response}")
+
+# JSON communication
+stream.send_json({"action": "getData", "key": "user"})
+result = stream.recv_json()
+print(result)
+```
+
+**Key Benefits:**
+- Cross-platform: Works on Windows, Linux, and macOS
+- Bidirectional communication
+- Built-in JSON serialization with length prefix
+- Simple client-server model
+
 ## 📖 IPC Methods Comparison
 
 | Method | Use Case | Performance | Complexity |
@@ -267,6 +317,7 @@ fn main() -> ipckit::Result<()> {
 | **IPC Channel** | Message passing | Fast | Low |
 | **File Channel** | Frontend-backend | Moderate | Low |
 | **Graceful Channel** | Event loop integration | Fast | Low |
+| **Local Socket** | Cross-platform sockets | Fast | Low |
 
 ## 🏗️ Architecture
 
@@ -284,6 +335,10 @@ fn main() -> ipckit::Result<()> {
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │              Graceful Shutdown Layer                    ││
 │  │  (GracefulNamedPipe, GracefulIpcChannel, ShutdownState) ││
+│  └─────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │                  Local Socket Layer                     ││
+│  │     (LocalSocketListener, LocalSocketStream)            ││
 │  └─────────────────────────────────────────────────────────┘│
 ├─────────────────────────────────────────────────────────────┤
 │              Platform Abstraction Layer                      │
