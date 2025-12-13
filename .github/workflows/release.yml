@@ -143,7 +143,7 @@ jobs:
           - wheels-macos-universal2
     steps:
       - name: Download artifact from PR workflow
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: dist/
@@ -193,7 +193,7 @@ jobs:
 
     steps:
       - name: Download wheel artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: wheels-*
           path: dist
@@ -294,7 +294,7 @@ jobs:
             {{__unknown__}}
 
       - name: Download wheel artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: wheels-*
           path: release-artifacts
