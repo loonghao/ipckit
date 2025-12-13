@@ -1,0 +1,22 @@
+[package]
+name = "ipckit-macros"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Procedural macros for ipckit - declarative IPC handlers"
+keywords = ["ipc", "macros", "derive", "handler"]
+categories = ["development-tools::procedural-macro-helpers"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2", features = ["full", "extra-traits"] }
+quote = "1"
+proc-macro2 = "1"
+darling = "0.20"
+
+[dev-dependencies]
+ipckit = { path = "../ipckit" }

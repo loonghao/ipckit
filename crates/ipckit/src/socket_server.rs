@@ -233,6 +233,26 @@ impl Message {
         }
     }
 
+    /// Create a binary message from raw bytes.
+    pub fn binary(data: Vec<u8>) -> Self {
+        Self {
+            msg_type: MessageType::Binary,
+            payload: serde_json::json!({
+                "data": base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data)
+            }),
+        }
+    }
+
+    /// Get the binary data (for binary messages).
+    pub fn as_binary(&self) -> Option<Vec<u8>> {
+        self.payload
+            .get("data")
+            .and_then(|v| v.as_str())
+            .and_then(|s| {
+                base64::Engine::decode(&base64::engine::general_purpose::STANDARD, s).ok()
+            })
+    }
+
     /// Get the message as text (if applicable).
     pub fn as_text(&self) -> Option<&str> {
         self.payload.get("content").and_then(|v| v.as_str())
