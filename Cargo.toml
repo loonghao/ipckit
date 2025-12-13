@@ -21,6 +21,9 @@ crossbeam-channel = "0.5"
 # Async support
 tokio = { version = "1.42", features = ["full"] }
 
+# IPC backends
+interprocess = { version = "2", features = ["tokio"] }
+
 # Platform-specific
 libc = "0.2"
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Pipes", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Memory"] }

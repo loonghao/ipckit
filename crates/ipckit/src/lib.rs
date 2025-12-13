@@ -30,6 +30,7 @@ pub mod channel;
 pub mod error;
 pub mod file_channel;
 pub mod graceful;
+pub mod local_socket;
 pub mod pipe;
 pub mod shm;
 
@@ -47,12 +48,17 @@ pub use graceful::{
     GracefulChannel, GracefulIpcChannel, GracefulNamedPipe, GracefulWrapper, OperationGuard,
     ShutdownState,
 };
+pub use local_socket::{LocalSocketListener, LocalSocketStream};
 pub use pipe::{AnonymousPipe, NamedPipe, PipeReader, PipeWriter};
 pub use shm::SharedMemory;
 
-// Python bindings
+// Async local socket exports (when both async and backend-interprocess features are enabled)
+#[cfg(all(feature = "async", feature = "backend-interprocess"))]
+pub use local_socket::{AsyncLocalSocketListener, AsyncLocalSocketStream};
+
+// Python bindings (organized into submodules for better maintainability)
 #[cfg(feature = "python-bindings")]
-pub mod python;
+pub mod bindings;
 
 #[cfg(feature = "python-bindings")]
-pub use python::*;
+pub use bindings::*;
