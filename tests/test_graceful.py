@@ -26,8 +26,8 @@ class TestGracefulNamedPipe:
             server_ready.set()
             server.wait_for_client()
 
-            # Read data
-            data = server.read(32)
+            # Read data - use exact size to avoid blocking
+            data = server.read(16)  # "Hello, Graceful!" is 16 bytes
             server_data["received"] = data
 
             # Shutdown

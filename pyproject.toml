@@ -60,7 +60,8 @@ strip = true
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-addopts = "-v --timeout=30"
+addopts = "-v"
+timeout = 30
 
 [tool.ruff]
 line-length = 100

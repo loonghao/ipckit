@@ -4,7 +4,7 @@
 
 use crate::error::{IpcError, Result};
 use std::io::{Read, Write};
-use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd, RawFd};
+use std::os::unix::io::{FromRawFd, OwnedFd};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 
@@ -144,7 +144,6 @@ pub fn socketpair() -> Result<(OwnedFd, OwnedFd)> {
 
 /// Signal handling utilities
 pub mod signal {
-    use super::*;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
 
