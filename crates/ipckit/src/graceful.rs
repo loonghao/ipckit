@@ -270,7 +270,7 @@ impl GracefulNamedPipe {
     }
 
     /// Wait for a client to connect (server only)
-    pub fn wait_for_client(&self) -> Result<()> {
+    pub fn wait_for_client(&mut self) -> Result<()> {
         if self.state.is_shutdown() {
             return Err(IpcError::Closed);
         }
@@ -407,7 +407,7 @@ impl<T> GracefulIpcChannel<T> {
     }
 
     /// Wait for a client to connect (server only)
-    pub fn wait_for_client(&self) -> Result<()> {
+    pub fn wait_for_client(&mut self) -> Result<()> {
         if self.state.is_shutdown() {
             return Err(IpcError::Closed);
         }
