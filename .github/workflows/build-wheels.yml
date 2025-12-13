@@ -10,6 +10,10 @@ permissions:
   contents: read
   actions: write
 
+env:
+  # Allow building with Python versions newer than PyO3's maximum supported version
+  PYO3_USE_ABI3_FORWARD_COMPATIBILITY: "1"
+
 jobs:
   # Linux builds
   linux:
