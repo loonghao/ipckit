@@ -233,36 +233,37 @@ jobs:
     if: always()
     steps:
       - name: Check results
+        shell: bash
         run: |
           echo "## PR Check Results" >> $GITHUB_STEP_SUMMARY
 
-          declare -A jobs=(
-            ["pre-build"]="${{ needs.pre-build.result }}"
-            ["quick-checks"]="${{ needs.quick-checks.result }}"
-            ["clippy"]="${{ needs.clippy.result }}"
-            ["python-tests"]="${{ needs.python-tests.result }}"
-            ["rust-tests"]="${{ needs.rust-tests.result }}"
-            ["wheel-validation"]="${{ needs.wheel-validation.result }}"
-          )
-
           failed=0
-          for job in "${!jobs[@]}"; do
-            result="${jobs[$job]}"
+
+          check_result() {
+            local job_name=$1
+            local result=$2
             if [[ "$result" == "success" ]]; then
-              echo "- ✅ $job" >> $GITHUB_STEP_SUMMARY
+              echo "- ✅ $job_name" >> $GITHUB_STEP_SUMMARY
             elif [[ "$result" == "skipped" ]]; then
-              echo "- ⏭️ $job (skipped)" >> $GITHUB_STEP_SUMMARY
+              echo "- ⏭️ $job_name (skipped)" >> $GITHUB_STEP_SUMMARY
             else
-              echo "- ❌ $job ($result)" >> $GITHUB_STEP_SUMMARY
+              echo "- ❌ $job_name ($result)" >> $GITHUB_STEP_SUMMARY
               failed=1
             fi
-          done
+          }
+
+          check_result "pre-build" "${{ needs.pre-build.result }}"
+          check_result "quick-checks" "${{ needs.quick-checks.result }}"
+          check_result "clippy" "${{ needs.clippy.result }}"
+          check_result "python-tests" "${{ needs.python-tests.result }}"
+          check_result "rust-tests" "${{ needs.rust-tests.result }}"
+          check_result "wheel-validation" "${{ needs.wheel-validation.result }}"
+
+          echo "" >> $GITHUB_STEP_SUMMARY
 
           if [[ $failed -eq 1 ]]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
             echo "❌ **PR is not ready for merge**" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
-          echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ **PR is ready for merge!**" >> $GITHUB_STEP_SUMMARY
