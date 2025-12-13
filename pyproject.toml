@@ -49,8 +49,8 @@ dev = [
 manifest-path = "crates/ipckit/Cargo.toml"
 # Python module name
 module-name = "ipckit"
-# Features to enable
-features = ["python-bindings", "ext-module"]
+# Features to enable - use abi3-py38 for Python 3.8+ compatibility
+features = ["python-bindings", "ext-module", "abi3-py38"]
 # Python source directory (for type stubs)
 python-source = "python"
 # Strip debug symbols for smaller binaries
