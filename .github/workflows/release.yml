@@ -205,7 +205,7 @@ jobs:
           echo "Total files: $(ls -1 dist/ | wc -l)"
 
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v3
         with:
           subject-path: 'dist/*'
 
