@@ -1,20 +1,10 @@
 """Tests for IPC channel functionality."""
 
 import os
-import sys
 import threading
 import time
 
 import pytest
-
-# Skip bidirectional tests on Unix - FIFO doesn't support true bidirectional communication
-# Windows named pipes support duplex mode
-IS_UNIX = sys.platform != "win32"
-
-# Skip all channel tests on Unix due to FIFO limitations
-pytestmark = pytest.mark.skipif(
-    IS_UNIX, reason="IpcChannel bidirectional communication not supported on Unix FIFO"
-)
 
 
 def test_channel_bytes():

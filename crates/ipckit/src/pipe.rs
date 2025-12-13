@@ -68,10 +68,13 @@ impl AnonymousPipe {
 }
 
 /// Named pipe for communication between unrelated processes
+///
+/// On Windows, this uses native named pipes with duplex support.
+/// On Unix, this uses Unix Domain Sockets for true bidirectional communication.
 pub struct NamedPipe {
     name: String,
     #[cfg(unix)]
-    inner: std::os::unix::io::OwnedFd,
+    inner: unix::UnixPipeInner,
     #[cfg(windows)]
     inner: windows::PipeHandle,
     is_server: bool,
@@ -116,7 +119,7 @@ impl NamedPipe {
     }
 
     /// Wait for a client to connect (server only)
-    pub fn wait_for_client(&self) -> Result<()> {
+    pub fn wait_for_client(&mut self) -> Result<()> {
         if !self.is_server {
             return Err(IpcError::InvalidState(
                 "Only server can wait for clients".into(),
@@ -124,8 +127,7 @@ impl NamedPipe {
         }
         #[cfg(unix)]
         {
-            // On Unix, the pipe is already connected after open
-            Ok(())
+            unix::wait_for_client(self)
         }
         #[cfg(windows)]
         {
@@ -207,14 +209,7 @@ impl Read for NamedPipe {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         #[cfg(unix)]
         {
-            use std::os::unix::io::AsRawFd;
-            let fd = self.inner.as_raw_fd();
-            let ret = unsafe { libc::read(fd, buf.as_mut_ptr() as *mut _, buf.len()) };
-            if ret < 0 {
-                Err(std::io::Error::last_os_error())
-            } else {
-                Ok(ret as usize)
-            }
+            unix::read_pipe(self, buf)
         }
         #[cfg(windows)]
         {
@@ -227,14 +222,7 @@ impl Write for NamedPipe {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         #[cfg(unix)]
         {
-            use std::os::unix::io::AsRawFd;
-            let fd = self.inner.as_raw_fd();
-            let ret = unsafe { libc::write(fd, buf.as_ptr() as *const _, buf.len()) };
-            if ret < 0 {
-                Err(std::io::Error::last_os_error())
-            } else {
-                Ok(ret as usize)
-            }
+            unix::write_pipe(self, buf)
         }
         #[cfg(windows)]
         {
@@ -243,7 +231,14 @@ impl Write for NamedPipe {
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
+        #[cfg(unix)]
+        {
+            unix::flush_pipe(self)
+        }
+        #[cfg(windows)]
+        {
+            Ok(())
+        }
     }
 }
 
@@ -251,8 +246,36 @@ impl Write for NamedPipe {
 #[cfg(unix)]
 mod unix {
     use super::*;
-    use std::ffi::CString;
-    use std::os::unix::io::{FromRawFd, OwnedFd};
+    use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd};
+    use std::os::unix::net::{UnixListener, UnixStream};
+    use std::sync::Mutex;
+
+    /// Unix pipe inner state - uses Unix Domain Socket for bidirectional communication
+    pub enum UnixPipeInner {
+        /// Server waiting for connection
+        Listener {
+            listener: UnixListener,
+            path: String,
+        },
+        /// Connected stream (both server after accept and client)
+        Connected(UnixStream),
+    }
+
+    impl UnixPipeInner {
+        pub fn as_stream(&self) -> Option<&UnixStream> {
+            match self {
+                UnixPipeInner::Connected(stream) => Some(stream),
+                _ => None,
+            }
+        }
+
+        pub fn as_stream_mut(&mut self) -> Option<&mut UnixStream> {
+            match self {
+                UnixPipeInner::Connected(stream) => Some(stream),
+                _ => None,
+            }
+        }
+    }
 
     pub fn create_anonymous_pipe() -> Result<AnonymousPipe> {
         let mut fds = [0i32; 2];
@@ -275,39 +298,21 @@ mod unix {
         let path = if name.starts_with('/') {
             name.to_string()
         } else {
-            format!("/tmp/{}", name)
+            format!("/tmp/{}.sock", name)
         };
 
-        let c_path = CString::new(path.clone())
-            .map_err(|_| IpcError::InvalidName("Invalid pipe name".into()))?;
+        // Remove existing socket if any
+        let _ = std::fs::remove_file(&path);
 
-        // Remove existing FIFO if any
-        unsafe { libc::unlink(c_path.as_ptr()) };
-
-        // Create FIFO with rw-rw-rw- permissions
-        let ret = unsafe { libc::mkfifo(c_path.as_ptr(), 0o666) };
-        if ret < 0 {
-            let err = std::io::Error::last_os_error();
-            if err.kind() != std::io::ErrorKind::AlreadyExists {
-                return Err(IpcError::Io(err));
-            }
-        }
-
-        // Open for read-write (non-blocking initially to avoid deadlock)
-        let fd = unsafe { libc::open(c_path.as_ptr(), libc::O_RDWR | libc::O_NONBLOCK) };
-        if fd < 0 {
-            return Err(IpcError::Io(std::io::Error::last_os_error()));
-        }
-
-        // Set back to blocking mode
-        unsafe {
-            let flags = libc::fcntl(fd, libc::F_GETFL);
-            libc::fcntl(fd, libc::F_SETFL, flags & !libc::O_NONBLOCK);
-        }
+        // Create Unix Domain Socket listener
+        let listener = UnixListener::bind(&path).map_err(|e| match e.kind() {
+            std::io::ErrorKind::PermissionDenied => IpcError::PermissionDenied(path.clone()),
+            _ => IpcError::Io(e),
+        })?;
 
         Ok(NamedPipe {
-            name: path,
-            inner: unsafe { OwnedFd::from_raw_fd(fd) },
+            name: path.clone(),
+            inner: UnixPipeInner::Listener { listener, path },
             is_server: true,
         })
     }
@@ -316,27 +321,76 @@ mod unix {
         let path = if name.starts_with('/') {
             name.to_string()
         } else {
-            format!("/tmp/{}", name)
+            format!("/tmp/{}.sock", name)
         };
 
-        let c_path = CString::new(path.clone())
-            .map_err(|_| IpcError::InvalidName("Invalid pipe name".into()))?;
-
-        let fd = unsafe { libc::open(c_path.as_ptr(), libc::O_RDWR) };
-        if fd < 0 {
-            let err = std::io::Error::last_os_error();
-            return Err(match err.kind() {
-                std::io::ErrorKind::NotFound => IpcError::NotFound(path),
-                std::io::ErrorKind::PermissionDenied => IpcError::PermissionDenied(path),
-                _ => IpcError::Io(err),
-            });
-        }
+        // Connect to Unix Domain Socket
+        let stream = UnixStream::connect(&path).map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => IpcError::NotFound(path.clone()),
+            std::io::ErrorKind::PermissionDenied => IpcError::PermissionDenied(path.clone()),
+            std::io::ErrorKind::ConnectionRefused => {
+                IpcError::NotFound(format!("Connection refused: {}", path))
+            }
+            _ => IpcError::Io(e),
+        })?;
 
         Ok(NamedPipe {
             name: path,
-            inner: unsafe { OwnedFd::from_raw_fd(fd) },
+            inner: UnixPipeInner::Connected(stream),
             is_server: false,
         })
+    }
+
+    pub fn wait_for_client(pipe: &mut NamedPipe) -> Result<()> {
+        match &pipe.inner {
+            UnixPipeInner::Listener { listener, path } => {
+                let (stream, _) = listener.accept()?;
+                pipe.inner = UnixPipeInner::Connected(stream);
+                Ok(())
+            }
+            UnixPipeInner::Connected(_) => {
+                // Already connected
+                Ok(())
+            }
+        }
+    }
+
+    pub fn read_pipe(pipe: &mut NamedPipe, buf: &mut [u8]) -> std::io::Result<usize> {
+        match pipe.inner.as_stream_mut() {
+            Some(stream) => stream.read(buf),
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::NotConnected,
+                "Pipe not connected",
+            )),
+        }
+    }
+
+    pub fn write_pipe(pipe: &mut NamedPipe, buf: &[u8]) -> std::io::Result<usize> {
+        match pipe.inner.as_stream_mut() {
+            Some(stream) => stream.write(buf),
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::NotConnected,
+                "Pipe not connected",
+            )),
+        }
+    }
+
+    pub fn flush_pipe(pipe: &mut NamedPipe) -> std::io::Result<()> {
+        match pipe.inner.as_stream_mut() {
+            Some(stream) => stream.flush(),
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::NotConnected,
+                "Pipe not connected",
+            )),
+        }
+    }
+
+    impl Drop for UnixPipeInner {
+        fn drop(&mut self) {
+            if let UnixPipeInner::Listener { path, .. } = self {
+                let _ = std::fs::remove_file(path);
+            }
+        }
     }
 }
 

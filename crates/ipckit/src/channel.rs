@@ -62,7 +62,7 @@ impl<T> IpcChannel<T> {
     }
 
     /// Wait for a client to connect (server only)
-    pub fn wait_for_client(&self) -> Result<()> {
+    pub fn wait_for_client(&mut self) -> Result<()> {
         self.pipe.wait_for_client()
     }
 }
@@ -222,7 +222,7 @@ impl<T> IpcReceiver<T> {
     }
 
     /// Wait for a sender to connect
-    pub fn wait_for_sender(&self) -> Result<()> {
+    pub fn wait_for_sender(&mut self) -> Result<()> {
         self.pipe.wait_for_client()
     }
 }

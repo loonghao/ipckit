@@ -280,7 +280,7 @@ impl PyNamedPipe {
     }
 
     /// Wait for a client to connect (server only)
-    fn wait_for_client(&self, py: Python<'_>) -> PyResult<()> {
+    fn wait_for_client(&mut self, py: Python<'_>) -> PyResult<()> {
         // Release GIL to allow other Python threads to run
         py.allow_threads(|| self.inner.wait_for_client())?;
         Ok(())
@@ -420,7 +420,7 @@ impl PyIpcChannel {
     }
 
     /// Wait for a client to connect (server only)
-    fn wait_for_client(&self, py: Python<'_>) -> PyResult<()> {
+    fn wait_for_client(&mut self, py: Python<'_>) -> PyResult<()> {
         // Release GIL to allow other Python threads to run
         py.allow_threads(|| self.inner.wait_for_client())?;
         Ok(())
@@ -636,7 +636,7 @@ impl PyGracefulNamedPipe {
     }
 
     /// Wait for a client to connect (server only)
-    fn wait_for_client(&self, py: Python<'_>) -> PyResult<()> {
+    fn wait_for_client(&mut self, py: Python<'_>) -> PyResult<()> {
         // Release GIL to allow other Python threads to run
         py.allow_threads(|| self.inner.wait_for_client())?;
         Ok(())
@@ -749,7 +749,7 @@ impl PyGracefulIpcChannel {
     }
 
     /// Wait for a client to connect (server only)
-    fn wait_for_client(&self, py: Python<'_>) -> PyResult<()> {
+    fn wait_for_client(&mut self, py: Python<'_>) -> PyResult<()> {
         // Release GIL to allow other Python threads to run
         py.allow_threads(|| self.inner.wait_for_client())?;
         Ok(())
