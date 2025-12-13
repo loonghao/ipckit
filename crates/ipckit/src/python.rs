@@ -199,16 +199,16 @@ impl PyAnonymousPipe {
         let reader = self.reader.as_mut().ok_or(IpcError::Closed)?;
 
         let mut buf = vec![0u8; size];
-        let n = reader.read(&mut buf)?;
+        let n = py.allow_threads(|| reader.read(&mut buf))?;
         buf.truncate(n);
 
         Ok(PyBytes::new(py, &buf).into())
     }
 
     /// Write data to the pipe
-    fn write(&mut self, data: &[u8]) -> PyResult<usize> {
+    fn write(&mut self, py: Python<'_>, data: &[u8]) -> PyResult<usize> {
         let writer = self.writer.as_mut().ok_or(IpcError::Closed)?;
-        let n = writer.write(data)?;
+        let n = py.allow_threads(|| writer.write(data))?;
         Ok(n)
     }
 

@@ -2,6 +2,7 @@
 
 import threading
 import time
+
 import pytest
 
 
@@ -20,7 +21,8 @@ class TestGracefulNamedPipe:
 
         def server_thread():
             server = ipckit.GracefulNamedPipe.create(pipe_name)
-            assert server.name.endswith(pipe_name)
+            # On Unix, name includes /tmp/ prefix and .sock suffix
+            assert pipe_name in server.name
             assert server.is_server
             assert not server.is_shutdown
             server_ready.set()
@@ -64,8 +66,8 @@ class TestGracefulNamedPipe:
         server.shutdown()
         assert server.is_shutdown
 
-        # Operations after shutdown should fail
-        with pytest.raises(Exception):
+        # Operations after shutdown should fail with ConnectionError or BrokenPipeError
+        with pytest.raises((ConnectionError, BrokenPipeError)):
             server.wait_for_client()
 
     def test_shutdown_timeout(self):
@@ -96,7 +98,8 @@ class TestGracefulIpcChannel:
 
         def server_thread():
             server = ipckit.GracefulIpcChannel.create(channel_name)
-            assert server.name.endswith(channel_name)
+            # On Unix, name includes /tmp/ prefix and .sock suffix
+            assert channel_name in server.name
             assert server.is_server
             assert not server.is_shutdown
             server_ready.set()
@@ -175,8 +178,8 @@ class TestGracefulIpcChannel:
         server.shutdown()
         assert server.is_shutdown
 
-        # Operations after shutdown should fail
-        with pytest.raises(Exception):
+        # Operations after shutdown should fail with ConnectionError or BrokenPipeError
+        with pytest.raises((ConnectionError, BrokenPipeError)):
             server.send(b"test")
 
     def test_drain(self):
