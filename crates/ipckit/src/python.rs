@@ -12,8 +12,13 @@ use crate::error::IpcError;
 use crate::file_channel::{
     FileChannel as RustFileChannel, FileMessage as RustFileMessage, MessageType as RustMessageType,
 };
+use crate::graceful::{
+    GracefulChannel, GracefulIpcChannel as RustGracefulIpcChannel,
+    GracefulNamedPipe as RustGracefulNamedPipe, ShutdownState,
+};
 use crate::pipe::{AnonymousPipe as RustAnonymousPipe, NamedPipe as RustNamedPipe};
 use crate::shm::SharedMemory as RustSharedMemory;
+use std::sync::Arc;
 
 // ============================================================================
 // JSON Conversion Utilities (Rust-native, no Python json module dependency)
@@ -578,6 +583,224 @@ fn file_message_to_py(py: Python<'_>, msg: RustFileMessage) -> PyResult<PyObject
 }
 
 // ============================================================================
+// GracefulNamedPipe
+// ============================================================================
+
+/// Python wrapper for GracefulNamedPipe - Named pipe with graceful shutdown support
+///
+/// This class wraps a NamedPipe with graceful shutdown capabilities,
+/// preventing errors when background threads continue sending messages
+/// after the main event loop has closed.
+#[pyclass(name = "GracefulNamedPipe")]
+pub struct PyGracefulNamedPipe {
+    inner: RustGracefulNamedPipe,
+}
+
+#[pymethods]
+impl PyGracefulNamedPipe {
+    /// Create a new named pipe server with graceful shutdown
+    #[staticmethod]
+    fn create(name: &str) -> PyResult<Self> {
+        let inner = RustGracefulNamedPipe::create(name)?;
+        Ok(Self { inner })
+    }
+
+    /// Connect to an existing named pipe with graceful shutdown
+    #[staticmethod]
+    fn connect(name: &str) -> PyResult<Self> {
+        let inner = RustGracefulNamedPipe::connect(name)?;
+        Ok(Self { inner })
+    }
+
+    /// Get the pipe name
+    #[getter]
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    /// Check if this is the server end
+    #[getter]
+    fn is_server(&self) -> bool {
+        self.inner.is_server()
+    }
+
+    /// Check if the channel has been shutdown
+    #[getter]
+    fn is_shutdown(&self) -> bool {
+        self.inner.is_shutdown()
+    }
+
+    /// Wait for a client to connect (server only)
+    fn wait_for_client(&self) -> PyResult<()> {
+        self.inner.wait_for_client()?;
+        Ok(())
+    }
+
+    /// Signal the channel to shutdown
+    ///
+    /// After calling this method:
+    /// - New send/receive operations will raise ConnectionError
+    /// - Pending operations may still complete
+    /// - Use drain() to wait for pending operations
+    fn shutdown(&self) {
+        self.inner.shutdown();
+    }
+
+    /// Wait for all pending operations to complete
+    fn drain(&self) -> PyResult<()> {
+        self.inner.drain()?;
+        Ok(())
+    }
+
+    /// Shutdown with a timeout (in milliseconds)
+    ///
+    /// Combines shutdown() and drain() with a timeout.
+    /// Raises TimeoutError if the drain doesn't complete within the timeout.
+    fn shutdown_timeout(&self, timeout_ms: u64) -> PyResult<()> {
+        let timeout = Duration::from_millis(timeout_ms);
+        self.inner.shutdown_timeout(timeout)?;
+        Ok(())
+    }
+
+    /// Read data from the pipe
+    fn read(&mut self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
+        let mut buf = vec![0u8; size];
+        let n = self.inner.read(&mut buf)?;
+        buf.truncate(n);
+        Ok(PyBytes::new(py, &buf).into())
+    }
+
+    /// Write data to the pipe
+    fn write(&mut self, data: &[u8]) -> PyResult<usize> {
+        let n = self.inner.write(data)?;
+        Ok(n)
+    }
+
+    /// Read exact number of bytes
+    fn read_exact(&mut self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
+        let mut buf = vec![0u8; size];
+        self.inner.read_exact(&mut buf)?;
+        Ok(PyBytes::new(py, &buf).into())
+    }
+
+    /// Write all data
+    fn write_all(&mut self, data: &[u8]) -> PyResult<()> {
+        self.inner.write_all(data)?;
+        Ok(())
+    }
+}
+
+// ============================================================================
+// GracefulIpcChannel
+// ============================================================================
+
+/// Python wrapper for GracefulIpcChannel - IPC channel with graceful shutdown support
+///
+/// This class wraps an IpcChannel with graceful shutdown capabilities,
+/// preventing errors when background threads continue sending messages
+/// after the main event loop has closed.
+#[pyclass(name = "GracefulIpcChannel")]
+pub struct PyGracefulIpcChannel {
+    inner: RustGracefulIpcChannel<Vec<u8>>,
+}
+
+#[pymethods]
+impl PyGracefulIpcChannel {
+    /// Create a new IPC channel server with graceful shutdown
+    #[staticmethod]
+    fn create(name: &str) -> PyResult<Self> {
+        let inner = RustGracefulIpcChannel::create(name)?;
+        Ok(Self { inner })
+    }
+
+    /// Connect to an existing IPC channel with graceful shutdown
+    #[staticmethod]
+    fn connect(name: &str) -> PyResult<Self> {
+        let inner = RustGracefulIpcChannel::connect(name)?;
+        Ok(Self { inner })
+    }
+
+    /// Get the channel name
+    #[getter]
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    /// Check if this is the server end
+    #[getter]
+    fn is_server(&self) -> bool {
+        self.inner.is_server()
+    }
+
+    /// Check if the channel has been shutdown
+    #[getter]
+    fn is_shutdown(&self) -> bool {
+        self.inner.is_shutdown()
+    }
+
+    /// Wait for a client to connect (server only)
+    fn wait_for_client(&self) -> PyResult<()> {
+        self.inner.wait_for_client()?;
+        Ok(())
+    }
+
+    /// Signal the channel to shutdown
+    ///
+    /// After calling this method:
+    /// - New send/receive operations will raise ConnectionError
+    /// - Pending operations may still complete
+    /// - Use drain() to wait for pending operations
+    fn shutdown(&self) {
+        self.inner.shutdown();
+    }
+
+    /// Wait for all pending operations to complete
+    fn drain(&self) -> PyResult<()> {
+        self.inner.drain()?;
+        Ok(())
+    }
+
+    /// Shutdown with a timeout (in milliseconds)
+    ///
+    /// Combines shutdown() and drain() with a timeout.
+    /// Raises TimeoutError if the drain doesn't complete within the timeout.
+    fn shutdown_timeout(&self, timeout_ms: u64) -> PyResult<()> {
+        let timeout = Duration::from_millis(timeout_ms);
+        self.inner.shutdown_timeout(timeout)?;
+        Ok(())
+    }
+
+    /// Send bytes through the channel
+    fn send(&mut self, data: &[u8]) -> PyResult<()> {
+        self.inner.send_bytes(data)?;
+        Ok(())
+    }
+
+    /// Receive bytes from the channel
+    fn recv(&mut self, py: Python<'_>) -> PyResult<Py<PyBytes>> {
+        let data = self.inner.recv_bytes()?;
+        Ok(PyBytes::new(py, &data).into())
+    }
+
+    /// Send a JSON-serializable object (uses Rust serde_json)
+    fn send_json(&mut self, obj: &Bound<'_, PyAny>) -> PyResult<()> {
+        let value = py_to_json_value(obj)?;
+        let json_bytes = serde_json::to_vec(&value)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
+        self.inner.send_bytes(&json_bytes)?;
+        Ok(())
+    }
+
+    /// Receive a JSON object (uses Rust serde_json)
+    fn recv_json(&mut self, py: Python<'_>) -> PyResult<PyObject> {
+        let data = self.inner.recv_bytes()?;
+        let value: serde_json::Value = serde_json::from_slice(&data)
+            .map_err(|e| IpcError::deserialization(e.to_string()))?;
+        json_value_to_py(py, &value)
+    }
+}
+
+// ============================================================================
 // Python Module
 // ============================================================================
 
@@ -591,6 +814,10 @@ pub fn ipckit_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PySharedMemory>()?;
     m.add_class::<PyIpcChannel>()?;
     m.add_class::<PyFileChannel>()?;
+    
+    // Graceful shutdown classes
+    m.add_class::<PyGracefulNamedPipe>()?;
+    m.add_class::<PyGracefulIpcChannel>()?;
 
     // JSON utilities (Rust-native, faster than Python's json module)
     m.add_function(wrap_pyfunction!(json_dumps, m)?)?;
@@ -612,6 +839,10 @@ This library provides various IPC mechanisms:
 - IpcChannel: High-level message passing interface
 - FileChannel: File-based IPC for frontend-backend communication
 
+Graceful shutdown support:
+- GracefulNamedPipe: Named pipe with graceful shutdown
+- GracefulIpcChannel: IPC channel with graceful shutdown
+
 JSON utilities (faster than Python's json module):
 - json_dumps(obj): Serialize Python object to JSON string
 - json_dumps_pretty(obj): Serialize with pretty formatting
@@ -620,15 +851,18 @@ JSON utilities (faster than Python's json module):
 Example:
     import ipckit
     
-    # Fast JSON serialization using Rust
-    data = {'key': 'value', 'numbers': [1, 2, 3]}
-    json_str = ipckit.json_dumps(data)
-    parsed = ipckit.json_loads(json_str)
+    # Using graceful shutdown
+    channel = ipckit.GracefulIpcChannel.create('my_channel')
+    channel.wait_for_client()
     
-    # File-based IPC
-    channel = ipckit.FileChannel.backend('./ipc_channel')
-    request_id = channel.send_request('ping', {})
-    response = channel.wait_response(request_id, timeout_ms=5000)
+    # ... use channel ...
+    
+    # Graceful shutdown
+    channel.shutdown()
+    channel.drain()  # Wait for pending operations
+    
+    # Or with timeout (in milliseconds)
+    channel.shutdown_timeout(5000)
 ",
     )?;
 

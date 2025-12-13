@@ -21,6 +21,7 @@ A high-performance, cross-platform IPC (Inter-Process Communication) library for
 - 📦 **Multiple IPC Methods** - Pipes, Shared Memory, Channels, and File-based IPC
 - 🔒 **Thread-Safe** - Safe concurrent access across processes
 - ⚡ **Native JSON** - Built-in fast JSON serialization using Rust's serde_json
+- 🛡️ **Graceful Shutdown** - Built-in support for graceful channel shutdown
 
 ## 📦 Installation
 
@@ -204,6 +205,58 @@ pretty_str = ipckit.json_dumps_pretty(data)
 obj = ipckit.json_loads('{"key": "value"}')
 ```
 
+### Graceful Shutdown
+
+When using IPC channels with event loops (like WebView, GUI frameworks), background threads may continue sending messages after the main event loop has closed, causing errors. The `GracefulChannel` feature solves this problem.
+
+**Python:**
+```python
+import ipckit
+
+# Create channel with graceful shutdown support
+channel = ipckit.GracefulIpcChannel.create("my_channel")
+channel.wait_for_client()
+
+# ... use channel normally ...
+data = channel.recv()
+channel.send(b"response")
+
+# Graceful shutdown - prevents new operations and waits for pending ones
+channel.shutdown()
+channel.drain()  # Wait for all pending operations to complete
+
+# Or use shutdown with timeout (in milliseconds)
+channel.shutdown_timeout(5000)  # 5 second timeout
+```
+
+**Rust:**
+```rust
+use ipckit::{GracefulIpcChannel, GracefulChannel};
+use std::time::Duration;
+
+fn main() -> ipckit::Result<()> {
+    let mut channel = GracefulIpcChannel::<Vec<u8>>::create("my_channel")?;
+    channel.wait_for_client()?;
+    
+    // ... use channel ...
+    
+    // Graceful shutdown
+    channel.shutdown();
+    channel.drain()?;
+    
+    // Or with timeout
+    channel.shutdown_timeout(Duration::from_secs(5))?;
+    
+    Ok(())
+}
+```
+
+**Key Benefits:**
+- Prevents `EventLoopClosed` and similar errors
+- Thread-safe shutdown signaling
+- Tracks pending operations with RAII guards
+- Configurable drain timeout
+
 ## 📖 IPC Methods Comparison
 
 | Method | Use Case | Performance | Complexity |
@@ -213,6 +266,7 @@ obj = ipckit.json_loads('{"key": "value"}')
 | **Shared Memory** | Large data, frequent access | Fastest | High |
 | **IPC Channel** | Message passing | Fast | Low |
 | **File Channel** | Frontend-backend | Moderate | Low |
+| **Graceful Channel** | Event loop integration | Fast | Low |
 
 ## 🏗️ Architecture
 
@@ -227,6 +281,10 @@ obj = ipckit.json_loads('{"key": "value"}')
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────────────────┐│
 │  │  Pipes  │ │   SHM   │ │ Channel │ │    File Channel     ││
 │  └─────────┘ └─────────┘ └─────────┘ └─────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │              Graceful Shutdown Layer                    ││
+│  │  (GracefulNamedPipe, GracefulIpcChannel, ShutdownState) ││
+│  └─────────────────────────────────────────────────────────┘│
 ├─────────────────────────────────────────────────────────────┤
 │              Platform Abstraction Layer                      │
 │         (Windows / Linux / macOS)                            │

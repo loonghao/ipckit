@@ -8,6 +8,10 @@ This library provides various IPC mechanisms:
 - IpcChannel: High-level message passing interface
 - FileChannel: File-based IPC for frontend-backend communication
 
+Graceful shutdown support:
+- GracefulNamedPipe: Named pipe with graceful shutdown
+- GracefulIpcChannel: IPC channel with graceful shutdown
+
 JSON utilities (faster than Python's json module, powered by Rust serde_json):
 - json_dumps(obj): Serialize Python object to JSON string
 - json_dumps_pretty(obj): Serialize with pretty formatting
@@ -28,18 +32,20 @@ Example:
     channel = IpcChannel.connect('my_channel')
     channel.send(b'Hello, IPC!')
     
-    # File-based IPC (for frontend-backend)
-    from ipckit import FileChannel
+    # Using graceful shutdown
+    from ipckit import GracefulIpcChannel
     
-    # Backend
-    channel = FileChannel.backend('./ipc_channel')
-    channel.send_request('ping', {})
+    channel = GracefulIpcChannel.create('my_channel')
+    channel.wait_for_client()
     
-    # Fast JSON (Rust-native)
-    from ipckit import json_dumps, json_loads
+    # ... use channel ...
     
-    json_str = json_dumps({'key': 'value'})
-    data = json_loads(json_str)
+    # Graceful shutdown
+    channel.shutdown()
+    channel.drain()  # Wait for pending operations
+    
+    # Or with timeout (in milliseconds)
+    channel.shutdown_timeout(5000)
 """
 
 from .ipckit import (
@@ -48,6 +54,8 @@ from .ipckit import (
     SharedMemory,
     IpcChannel,
     FileChannel,
+    GracefulNamedPipe,
+    GracefulIpcChannel,
     json_dumps,
     json_dumps_pretty,
     json_loads,
@@ -60,6 +68,8 @@ __all__ = [
     "SharedMemory",
     "IpcChannel",
     "FileChannel",
+    "GracefulNamedPipe",
+    "GracefulIpcChannel",
     "json_dumps",
     "json_dumps_pretty",
     "json_loads",

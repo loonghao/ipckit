@@ -423,3 +423,271 @@ class FileChannel:
     def clear(self) -> None:
         """Clear all messages in both inbox and outbox."""
         ...
+
+
+class GracefulNamedPipe:
+    """Named pipe with graceful shutdown support.
+    
+    This class wraps a NamedPipe with graceful shutdown capabilities,
+    preventing errors when background threads continue sending messages
+    after the main event loop has closed.
+    
+    Example:
+        channel = GracefulNamedPipe.create('my_pipe')
+        channel.wait_for_client()
+        
+        # ... use channel ...
+        
+        # Graceful shutdown
+        channel.shutdown()
+        channel.drain()  # Wait for pending operations
+        
+        # Or with timeout (in milliseconds)
+        channel.shutdown_timeout(5000)
+    """
+
+    @staticmethod
+    def create(name: str) -> "GracefulNamedPipe":
+        """Create a new named pipe server with graceful shutdown.
+
+        Args:
+            name: Pipe name.
+
+        Returns:
+            A new GracefulNamedPipe instance.
+        """
+        ...
+
+    @staticmethod
+    def connect(name: str) -> "GracefulNamedPipe":
+        """Connect to an existing named pipe with graceful shutdown.
+
+        Args:
+            name: Pipe name to connect to.
+
+        Returns:
+            A connected GracefulNamedPipe instance.
+        """
+        ...
+
+    @property
+    def name(self) -> str:
+        """Get the pipe name."""
+        ...
+
+    @property
+    def is_server(self) -> bool:
+        """Check if this is the server end."""
+        ...
+
+    @property
+    def is_shutdown(self) -> bool:
+        """Check if the channel has been shutdown."""
+        ...
+
+    def wait_for_client(self) -> None:
+        """Wait for a client to connect (server only).
+        
+        Raises:
+            ConnectionError: If channel is already shutdown
+        """
+        ...
+
+    def shutdown(self) -> None:
+        """Signal the channel to shutdown.
+        
+        After calling this method:
+        - New send/receive operations will raise ConnectionError
+        - Pending operations may still complete
+        - Use drain() to wait for pending operations
+        """
+        ...
+
+    def drain(self) -> None:
+        """Wait for all pending operations to complete."""
+        ...
+
+    def shutdown_timeout(self, timeout_ms: int) -> None:
+        """Shutdown with a timeout.
+        
+        Combines shutdown() and drain() with a timeout.
+        
+        Args:
+            timeout_ms: Timeout in milliseconds
+        
+        Raises:
+            TimeoutError: If drain doesn't complete within timeout
+        """
+        ...
+
+    def read(self, size: int) -> bytes:
+        """Read data from the pipe.
+        
+        Raises:
+            BrokenPipeError: If channel is shutdown
+        """
+        ...
+
+    def write(self, data: bytes) -> int:
+        """Write data to the pipe.
+        
+        Raises:
+            BrokenPipeError: If channel is shutdown
+        """
+        ...
+
+    def read_exact(self, size: int) -> bytes:
+        """Read exact number of bytes.
+        
+        Raises:
+            BrokenPipeError: If channel is shutdown
+        """
+        ...
+
+    def write_all(self, data: bytes) -> None:
+        """Write all data.
+        
+        Raises:
+            BrokenPipeError: If channel is shutdown
+        """
+        ...
+
+
+class GracefulIpcChannel:
+    """IPC channel with graceful shutdown support.
+    
+    This class wraps an IpcChannel with graceful shutdown capabilities,
+    preventing errors when background threads continue sending messages
+    after the main event loop has closed.
+    
+    Example:
+        channel = GracefulIpcChannel.create('my_channel')
+        channel.wait_for_client()
+        
+        # ... use channel ...
+        
+        # Graceful shutdown
+        channel.shutdown()
+        channel.drain()  # Wait for pending operations
+        
+        # Or with timeout (in milliseconds)
+        channel.shutdown_timeout(5000)
+    """
+
+    @staticmethod
+    def create(name: str) -> "GracefulIpcChannel":
+        """Create a new IPC channel server with graceful shutdown.
+
+        Args:
+            name: Channel name.
+
+        Returns:
+            A new GracefulIpcChannel instance.
+        """
+        ...
+
+    @staticmethod
+    def connect(name: str) -> "GracefulIpcChannel":
+        """Connect to an existing IPC channel with graceful shutdown.
+
+        Args:
+            name: Channel name to connect to.
+
+        Returns:
+            A connected GracefulIpcChannel instance.
+        """
+        ...
+
+    @property
+    def name(self) -> str:
+        """Get the channel name."""
+        ...
+
+    @property
+    def is_server(self) -> bool:
+        """Check if this is the server end."""
+        ...
+
+    @property
+    def is_shutdown(self) -> bool:
+        """Check if the channel has been shutdown."""
+        ...
+
+    def wait_for_client(self) -> None:
+        """Wait for a client to connect (server only).
+        
+        Raises:
+            ConnectionError: If channel is already shutdown
+        """
+        ...
+
+    def shutdown(self) -> None:
+        """Signal the channel to shutdown.
+        
+        After calling this method:
+        - New send/receive operations will raise ConnectionError
+        - Pending operations may still complete
+        - Use drain() to wait for pending operations
+        """
+        ...
+
+    def drain(self) -> None:
+        """Wait for all pending operations to complete."""
+        ...
+
+    def shutdown_timeout(self, timeout_ms: int) -> None:
+        """Shutdown with a timeout.
+        
+        Combines shutdown() and drain() with a timeout.
+        
+        Args:
+            timeout_ms: Timeout in milliseconds
+        
+        Raises:
+            TimeoutError: If drain doesn't complete within timeout
+        """
+        ...
+
+    def send(self, data: bytes) -> None:
+        """Send bytes through the channel.
+
+        Args:
+            data: Data to send.
+        
+        Raises:
+            ConnectionError: If channel is shutdown
+        """
+        ...
+
+    def recv(self) -> bytes:
+        """Receive bytes from the channel.
+
+        Returns:
+            Received data.
+        
+        Raises:
+            ConnectionError: If channel is shutdown
+        """
+        ...
+
+    def send_json(self, obj: Any) -> None:
+        """Send a JSON-serializable object.
+
+        Args:
+            obj: Object to send (will be serialized to JSON).
+        
+        Raises:
+            ConnectionError: If channel is shutdown
+        """
+        ...
+
+    def recv_json(self) -> Any:
+        """Receive a JSON object.
+
+        Returns:
+            Deserialized Python object.
+        
+        Raises:
+            ConnectionError: If channel is shutdown
+        """
+        ...
