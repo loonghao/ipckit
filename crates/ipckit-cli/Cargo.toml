@@ -1,0 +1,38 @@
+[package]
+name = "ipckit-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "CLI tool for ipckit - IPC toolkit for debugging and testing"
+keywords = ["ipc", "cli", "debug", "testing"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "ipckit"
+path = "src/main.rs"
+
+[dependencies]
+# Core
+ipckit = { path = "../ipckit" }
+serde.workspace = true
+serde_json.workspace = true
+
+# CLI
+clap = { version = "4", features = ["derive", "env", "color"] }
+clap_complete = "4"
+
+# Output formatting
+console = "0.15"
+indicatif = "0.17"
+
+# Config
+toml = "0.8"
+dirs = "5"
+
+# Async
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
+
+[dev-dependencies]
+tempfile.workspace = true
