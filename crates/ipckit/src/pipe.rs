@@ -246,9 +246,8 @@ impl Write for NamedPipe {
 #[cfg(unix)]
 mod unix {
     use super::*;
-    use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd};
+    use std::os::unix::io::{FromRawFd, OwnedFd};
     use std::os::unix::net::{UnixListener, UnixStream};
-    use std::sync::Mutex;
 
     /// Unix pipe inner state - uses Unix Domain Socket for bidirectional communication
     pub enum UnixPipeInner {
@@ -262,13 +261,6 @@ mod unix {
     }
 
     impl UnixPipeInner {
-        pub fn as_stream(&self) -> Option<&UnixStream> {
-            match self {
-                UnixPipeInner::Connected(stream) => Some(stream),
-                _ => None,
-            }
-        }
-
         pub fn as_stream_mut(&mut self) -> Option<&mut UnixStream> {
             match self {
                 UnixPipeInner::Connected(stream) => Some(stream),
@@ -343,7 +335,7 @@ mod unix {
 
     pub fn wait_for_client(pipe: &mut NamedPipe) -> Result<()> {
         match &pipe.inner {
-            UnixPipeInner::Listener { listener, path } => {
+            UnixPipeInner::Listener { listener, path: _ } => {
                 let (stream, _) = listener.accept()?;
                 pipe.inner = UnixPipeInner::Connected(stream);
                 Ok(())
