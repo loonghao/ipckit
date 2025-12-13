@@ -31,6 +31,7 @@ pub mod pipe;
 pub mod shm;
 pub mod channel;
 pub mod file_channel;
+pub mod graceful;
 
 #[cfg(unix)]
 pub mod unix;
@@ -44,6 +45,10 @@ pub use pipe::{AnonymousPipe, NamedPipe, PipeReader, PipeWriter};
 pub use shm::SharedMemory;
 pub use channel::{IpcChannel, IpcSender, IpcReceiver};
 pub use file_channel::{FileChannel, FileMessage, MessageType};
+pub use graceful::{
+    GracefulChannel, GracefulIpcChannel, GracefulNamedPipe, 
+    GracefulWrapper, ShutdownState, OperationGuard
+};
 
 // Python bindings
 #[cfg(feature = "python-bindings")]
