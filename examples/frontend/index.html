@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ipckit Frontend Demo</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+        }
+        
+        .status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.connected {
+            background: #00ff88;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .card h2 {
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            color: #00d9ff;
+        }
+        
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #00d9ff, #00a8cc);
+            color: #fff;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 217, 255, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #00ff88, #00cc6a);
+            color: #000;
+        }
+        
+        .calculator {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto 1fr auto;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        input[type="number"] {
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 16px;
+            width: 100%;
+        }
+        
+        select {
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 16px;
+        }
+        
+        .result {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #00ff88;
+        }
+        
+        .log-container {
+            background: #0a0a0a;
+            border-radius: 10px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+        }
+        
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .log-entry.request {
+            color: #00d9ff;
+        }
+        
+        .log-entry.response {
+            color: #00ff88;
+        }
+        
+        .log-entry.error {
+            color: #ff4444;
+        }
+        
+        .log-entry .timestamp {
+            color: #666;
+            margin-right: 10px;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        
+        .info-item {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .info-item .label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        
+        .info-item .value {
+            font-size: 14px;
+            color: #fff;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 ipckit Frontend Demo</h1>
+        <p class="subtitle">Frontend-Backend IPC Communication Example</p>
+        
+        <!-- Connection Status -->
+        <div class="status-bar">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Disconnected</span>
+            <button class="btn-primary" id="connectBtn" onclick="connect()">Connect</button>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="card">
+            <h2>📡 Quick Actions</h2>
+            <div class="btn-group">
+                <button class="btn-secondary" onclick="callMethod('ping')">Ping</button>
+                <button class="btn-secondary" onclick="callMethod('echo', {message: 'Hello from browser!'})">Echo</button>
+                <button class="btn-secondary" onclick="callMethod('get_info')">Get Info</button>
+            </div>
+        </div>
+        
+        <!-- Calculator -->
+        <div class="card">
+            <h2>🧮 Calculator (RPC Demo)</h2>
+            <div class="calculator">
+                <input type="number" id="numA" value="10" placeholder="A">
+                <select id="operation">
+                    <option value="add">+</option>
+                    <option value="subtract">-</option>
+                    <option value="multiply">×</option>
+                    <option value="divide">÷</option>
+                </select>
+                <input type="number" id="numB" value="5" placeholder="B">
+                <button class="btn-success" onclick="calculate()">=</button>
+                <span class="result" id="calcResult">?</span>
+            </div>
+        </div>
+        
+        <!-- Backend Info -->
+        <div class="card" id="infoCard" style="display: none;">
+            <h2>ℹ️ Backend Information</h2>
+            <div class="info-grid" id="infoGrid"></div>
+        </div>
+        
+        <!-- Communication Log -->
+        <div class="card">
+            <h2>📋 Communication Log</h2>
+            <div class="log-container" id="logContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        // IPC Client for WebSocket communication
+        class IpcClient {
+            constructor(url) {
+                this.url = url;
+                this.ws = null;
+                this.pendingRequests = new Map();
+                this.onStatusChange = null;
+            }
+            
+            connect() {
+                return new Promise((resolve, reject) => {
+                    this.ws = new WebSocket(this.url);
+                    
+                    this.ws.onopen = () => {
+                        this.onStatusChange?.(true);
+                        resolve();
+                    };
+                    
+                    this.ws.onclose = () => {
+                        this.onStatusChange?.(false);
+                    };
+                    
+                    this.ws.onerror = (err) => {
+                        reject(err);
+                    };
+                    
+                    this.ws.onmessage = (event) => {
+                        const response = JSON.parse(event.data);
+                        const pending = this.pendingRequests.get(response.id);
+                        
+                        if (pending) {
+                            this.pendingRequests.delete(response.id);
+                            if (response.error) {
+                                pending.reject(new Error(response.error));
+                            } else {
+                                pending.resolve(response.result);
+                            }
+                        }
+                    };
+                });
+            }
+            
+            call(method, params = {}) {
+                return new Promise((resolve, reject) => {
+                    const id = crypto.randomUUID();
+                    const request = { id, method, params };
+                    
+                    this.pendingRequests.set(id, { resolve, reject });
+                    this.ws.send(JSON.stringify(request));
+                    
+                    // Timeout after 10 seconds
+                    setTimeout(() => {
+                        if (this.pendingRequests.has(id)) {
+                            this.pendingRequests.delete(id);
+                            reject(new Error('Request timeout'));
+                        }
+                    }, 10000);
+                });
+            }
+            
+            disconnect() {
+                if (this.ws) {
+                    this.ws.close();
+                    this.ws = null;
+                }
+            }
+        }
+        
+        // Global client instance
+        let client = null;
+        
+        // UI Elements
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const connectBtn = document.getElementById('connectBtn');
+        const logContainer = document.getElementById('logContainer');
+        const infoCard = document.getElementById('infoCard');
+        const infoGrid = document.getElementById('infoGrid');
+        
+        // Logging
+        function log(type, message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerHTML = `<span class="timestamp">[${timestamp}]</span>${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // Connect to backend
+        async function connect() {
+            if (client) {
+                client.disconnect();
+                client = null;
+                updateStatus(false);
+                connectBtn.textContent = 'Connect';
+                return;
+            }
+            
+            client = new IpcClient('ws://localhost:8765');
+            
+            client.onStatusChange = (connected) => {
+                updateStatus(connected);
+            };
+            
+            try {
+                log('request', '🔌 Connecting to backend...');
+                await client.connect();
+                log('response', '✅ Connected successfully!');
+                connectBtn.textContent = 'Disconnect';
+                
+                // Auto-fetch backend info
+                await callMethod('get_info');
+            } catch (err) {
+                log('error', `❌ Connection failed: ${err.message}`);
+                client = null;
+            }
+        }
+        
+        function updateStatus(connected) {
+            statusDot.className = connected ? 'status-dot connected' : 'status-dot';
+            statusText.textContent = connected ? 'Connected' : 'Disconnected';
+        }
+        
+        // Call RPC method
+        async function callMethod(method, params = {}) {
+            if (!client) {
+                log('error', '❌ Not connected to backend');
+                return;
+            }
+            
+            log('request', `📤 ${method}(${JSON.stringify(params)})`);
+            
+            try {
+                const result = await client.call(method, params);
+                log('response', `📥 ${JSON.stringify(result)}`);
+                
+                // Special handling for get_info
+                if (method === 'get_info') {
+                    showBackendInfo(result);
+                }
+                
+                return result;
+            } catch (err) {
+                log('error', `❌ Error: ${err.message}`);
+            }
+        }
+        
+        // Calculator
+        async function calculate() {
+            const a = parseFloat(document.getElementById('numA').value);
+            const b = parseFloat(document.getElementById('numB').value);
+            const op = document.getElementById('operation').value;
+            
+            const result = await callMethod('calculate', { operation: op, a, b });
+            
+            if (result) {
+                document.getElementById('calcResult').textContent = result.result;
+            }
+        }
+        
+        // Show backend info
+        function showBackendInfo(info) {
+            infoCard.style.display = 'block';
+            infoGrid.innerHTML = '';
+            
+            for (const [key, value] of Object.entries(info)) {
+                const item = document.createElement('div');
+                item.className = 'info-item';
+                item.innerHTML = `
+                    <div class="label">${key}</div>
+                    <div class="value">${value}</div>
+                `;
+                infoGrid.appendChild(item);
+            }
+        }
+        
+        // Initial log
+        log('response', '🚀 Frontend ready. Click "Connect" to start.');
+        log('response', '💡 Make sure backend is running: python backend_server.py --mode websocket');
+    </script>
+</body>
+</html>

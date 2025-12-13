@@ -1,0 +1,55 @@
+[package]
+name = "ipckit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "A cross-platform IPC (Inter-Process Communication) library for Rust and Python"
+keywords = ["ipc", "pipe", "shared-memory", "socket", "interprocess"]
+categories = ["os", "api-bindings", "concurrency"]
+
+[features]
+default = []
+# Python bindings feature
+python-bindings = ["pyo3"]
+# ABI3 for Python 3.7+ compatibility
+abi3 = ["pyo3/abi3"]
+abi3-py37 = ["pyo3/abi3-py37"]
+abi3-py38 = ["pyo3/abi3-py38"]
+# Extension module for building as Python extension
+ext-module = ["pyo3/extension-module"]
+# Async support
+async = ["tokio"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+bytes.workspace = true
+parking_lot.workspace = true
+crossbeam-channel.workspace = true
+tracing.workspace = true
+
+# Base64 encoding for bytes in JSON
+base64 = "0.22"
+
+# Optional async
+tokio = { workspace = true, optional = true }
+
+# Optional Python bindings
+pyo3 = { workspace = true, optional = true }
+
+# Platform-specific dependencies
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[lib]
+crate-type = ["cdylib", "rlib"]

@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/loonghao/ipckit"
+authors = ["Hal <hal.long@outlook.com>"]
+
+[workspace.dependencies]
+# Core dependencies
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+bytes = "1.9"
+parking_lot = "0.12"
+crossbeam-channel = "0.5"
+
+# Async support
+tokio = { version = "1.42", features = ["full"] }
+
+# Platform-specific
+libc = "0.2"
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Pipes", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Memory"] }
+
+# Python bindings
+pyo3 = { version = "0.23", features = ["extension-module"] }
+
+# Logging
+tracing = "0.1"
+
+# Testing
+tempfile = "3.14"

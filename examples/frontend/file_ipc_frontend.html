@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File-based IPC Frontend</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #2d3436 0%, #000000 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container { max-width: 900px; margin: 0 auto; }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #fdcb6e, #e17055);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .card h2 {
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            color: #fdcb6e;
+        }
+        
+        .file-path {
+            background: rgba(0,0,0,0.3);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 13px;
+            margin-bottom: 15px;
+            word-break: break-all;
+        }
+        
+        .file-path .label {
+            color: #888;
+            font-size: 11px;
+            margin-bottom: 5px;
+        }
+        
+        .btn-group { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
+        
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #fdcb6e, #e17055);
+            color: #000;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(253, 203, 110, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        
+        .btn-secondary:hover { background: rgba(255,255,255,0.2); }
+        
+        .calculator {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto auto;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        input, select, textarea {
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 14px;
+        }
+        
+        .result {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #00b894;
+            min-width: 60px;
+            text-align: center;
+        }
+        
+        .json-viewer {
+            background: #0a0a0a;
+            border-radius: 10px;
+            padding: 15px;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        .log {
+            background: #0a0a0a;
+            border-radius: 10px;
+            padding: 15px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .log-entry { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .log-entry.send { color: #fdcb6e; }
+        .log-entry.recv { color: #00b894; }
+        .log-entry.error { color: #ff7675; }
+        .log-entry .time { color: #666; margin-right: 10px; }
+        
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 20px;
+            font-size: 13px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff7675;
+        }
+        
+        .status-dot.active { background: #00b894; animation: pulse 2s infinite; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        
+        @media (max-width: 768px) {
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+        
+        .note {
+            background: rgba(253, 203, 110, 0.1);
+            border-left: 3px solid #fdcb6e;
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📁 File-based IPC Frontend</h1>
+        <p class="subtitle">Read/Write JSON files to communicate with Python backend</p>
+        
+        <!-- Important Note -->
+        <div class="card">
+            <div class="note">
+                <strong>⚠️ 浏览器安全限制：</strong><br>
+                浏览器无法直接读写本地文件。此页面用于演示协议格式。<br><br>
+                <strong>实际使用场景：</strong><br>
+                • <strong>Electron/Tauri</strong>: 使用 Node.js fs 模块或 Tauri API 读写文件<br>
+                • <strong>桌面应用</strong>: 使用各语言的文件 I/O API<br>
+                • <strong>Python 测试</strong>: 运行 <code>file_ipc_frontend.py</code>
+            </div>
+        </div>
+        
+        <!-- File Paths -->
+        <div class="card">
+            <h2>📂 IPC 文件路径</h2>
+            <div class="grid-2">
+                <div class="file-path">
+                    <div class="label">Backend → Frontend (读取此文件)</div>
+                    <div id="readPath">./ipc_channel/backend_to_frontend.json</div>
+                </div>
+                <div class="file-path">
+                    <div class="label">Frontend → Backend (写入此文件)</div>
+                    <div id="writePath">./ipc_channel/frontend_to_backend.json</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Message Protocol -->
+        <div class="card">
+            <h2>📋 消息协议格式</h2>
+            <p style="color: #888; margin-bottom: 15px; font-size: 13px;">
+                每个文件包含一个 JSON 数组，每个元素是一条消息：
+            </p>
+            <div class="json-viewer" id="protocolExample">[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "timestamp": 1702483200000,
+    "type": "request",
+    "method": "calculate",
+    "payload": {"operation": "add", "a": 10, "b": 5}
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440001",
+    "timestamp": 1702483200100,
+    "type": "response",
+    "reply_to": "550e8400-e29b-41d4-a716-446655440000",
+    "payload": {"result": 15, "operation": "add"}
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440002",
+    "timestamp": 1702483200200,
+    "type": "event",
+    "method": "status_update",
+    "payload": {"status": "ready"}
+  }
+]</div>
+        </div>
+        
+        <!-- Message Generator -->
+        <div class="card">
+            <h2>🔧 消息生成器</h2>
+            <div class="btn-group">
+                <button class="btn-secondary" onclick="generateMessage('ping')">Ping</button>
+                <button class="btn-secondary" onclick="generateMessage('echo')">Echo</button>
+                <button class="btn-secondary" onclick="generateMessage('calculate')">Calculate</button>
+                <button class="btn-secondary" onclick="generateMessage('get_info')">Get Info</button>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <label style="color: #888; font-size: 12px;">生成的请求消息 (复制到 frontend_to_backend.json):</label>
+                <textarea id="generatedMessage" rows="8" style="width: 100%; margin-top: 8px; font-family: monospace;"></textarea>
+            </div>
+            
+            <button class="btn-primary" style="margin-top: 10px;" onclick="copyMessage()">📋 复制到剪贴板</button>
+        </div>
+        
+        <!-- Simulated Actions -->
+        <div class="card">
+            <h2>🎮 模拟交互 (仅演示)</h2>
+            <div class="calculator">
+                <input type="number" id="numA" value="10" placeholder="A">
+                <select id="op">
+                    <option value="add">+</option>
+                    <option value="subtract">-</option>
+                    <option value="multiply">×</option>
+                    <option value="divide">÷</option>
+                </select>
+                <input type="number" id="numB" value="5" placeholder="B">
+                <button class="btn-primary" onclick="simulateCalculate()">=</button>
+                <span class="result" id="calcResult">?</span>
+            </div>
+        </div>
+        
+        <!-- Log -->
+        <div class="card">
+            <h2>📝 操作日志</h2>
+            <div class="log" id="log"></div>
+        </div>
+    </div>
+
+    <script>
+        let messageId = 0;
+        
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0;
+                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            });
+        }
+        
+        function log(type, msg) {
+            const el = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerHTML = `<span class="time">[${time}]</span>${msg}`;
+            el.appendChild(entry);
+            el.scrollTop = el.scrollHeight;
+        }
+        
+        function generateMessage(method) {
+            const messages = [];
+            const id = generateUUID();
+            const timestamp = Date.now();
+            
+            let payload = {};
+            
+            switch(method) {
+                case 'ping':
+                    payload = {};
+                    break;
+                case 'echo':
+                    payload = { message: "Hello from frontend!" };
+                    break;
+                case 'calculate':
+                    payload = {
+                        operation: document.getElementById('op').value,
+                        a: parseFloat(document.getElementById('numA').value),
+                        b: parseFloat(document.getElementById('numB').value)
+                    };
+                    break;
+                case 'get_info':
+                    payload = {};
+                    break;
+            }
+            
+            const message = {
+                id,
+                timestamp,
+                type: "request",
+                method,
+                payload
+            };
+            
+            messages.push(message);
+            
+            const json = JSON.stringify(messages, null, 2);
+            document.getElementById('generatedMessage').value = json;
+            
+            log('send', `生成 ${method} 请求: ${JSON.stringify(payload)}`);
+        }
+        
+        function copyMessage() {
+            const textarea = document.getElementById('generatedMessage');
+            textarea.select();
+            document.execCommand('copy');
+            log('send', '已复制到剪贴板');
+        }
+        
+        function simulateCalculate() {
+            const a = parseFloat(document.getElementById('numA').value);
+            const b = parseFloat(document.getElementById('numB').value);
+            const op = document.getElementById('op').value;
+            
+            const ops = {
+                add: a + b,
+                subtract: a - b,
+                multiply: a * b,
+                divide: b !== 0 ? a / b : Infinity
+            };
+            
+            const result = ops[op];
+            document.getElementById('calcResult').textContent = result;
+            
+            log('recv', `模拟计算结果: ${a} ${op} ${b} = ${result}`);
+            
+            // Also generate the message
+            generateMessage('calculate');
+        }
+        
+        // Initial log
+        log('recv', '页面已加载。此页面演示 File-based IPC 协议格式。');
+        log('recv', '实际使用时，需要在 Electron/Tauri 等环境中读写文件。');
+    </script>
+</body>
+</html>

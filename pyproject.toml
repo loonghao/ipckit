@@ -1,0 +1,71 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "ipckit"
+version = "0.1.0"
+description = "A cross-platform IPC (Inter-Process Communication) library powered by Rust"
+readme = "README.md"
+license = { text = "MIT OR Apache-2.0" }
+requires-python = ">=3.8"
+authors = [
+    { name = "Hal", email = "hal.long@outlook.com" }
+]
+keywords = ["ipc", "pipe", "shared-memory", "interprocess", "communication"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+    "Topic :: System :: Operating System",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://github.com/loonghao/ipckit"
+Repository = "https://github.com/loonghao/ipckit"
+Documentation = "https://github.com/loonghao/ipckit#readme"
+Issues = "https://github.com/loonghao/ipckit/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-timeout>=2.0",
+]
+
+[tool.maturin]
+# Build from the ipckit crate
+manifest-path = "crates/ipckit/Cargo.toml"
+# Python module name
+module-name = "ipckit"
+# Features to enable
+features = ["python-bindings", "ext-module"]
+# Python source directory (for type stubs)
+python-source = "python"
+# Strip debug symbols for smaller binaries
+strip = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --timeout=30"
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = ["E501"]
