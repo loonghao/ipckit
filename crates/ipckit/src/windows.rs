@@ -195,7 +195,7 @@ impl Write for NamedPipeServer {
     fn flush(&mut self) -> std::io::Result<()> {
         NamedPipeServer::flush(self).map_err(|e| match e {
             IpcError::Io(e) => e,
-            _ => std::io::Error::new(std::io::ErrorKind::Other, e.to_string()),
+            _ => std::io::Error::other(e.to_string()),
         })
     }
 }

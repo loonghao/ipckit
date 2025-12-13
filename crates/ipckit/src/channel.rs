@@ -284,6 +284,7 @@ mod tests {
     use std::thread;
 
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+    #[allow(dead_code)]
     struct TestMessage {
         id: u32,
         content: String,

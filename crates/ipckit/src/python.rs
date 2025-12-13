@@ -196,7 +196,7 @@ impl PyAnonymousPipe {
 
     /// Read data from the pipe
     fn read(&mut self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
-        let reader = self.reader.as_mut().ok_or_else(|| IpcError::Closed)?;
+        let reader = self.reader.as_mut().ok_or(IpcError::Closed)?;
 
         let mut buf = vec![0u8; size];
         let n = reader.read(&mut buf)?;
@@ -207,7 +207,7 @@ impl PyAnonymousPipe {
 
     /// Write data to the pipe
     fn write(&mut self, data: &[u8]) -> PyResult<usize> {
-        let writer = self.writer.as_mut().ok_or_else(|| IpcError::Closed)?;
+        let writer = self.writer.as_mut().ok_or(IpcError::Closed)?;
         let n = writer.write(data)?;
         Ok(n)
     }
@@ -216,7 +216,7 @@ impl PyAnonymousPipe {
     #[cfg(unix)]
     fn reader_fd(&self) -> PyResult<i32> {
         use std::os::unix::io::AsRawFd;
-        let reader = self.reader.as_ref().ok_or_else(|| IpcError::Closed)?;
+        let reader = self.reader.as_ref().ok_or(IpcError::Closed)?;
         Ok(reader.as_raw_fd())
     }
 
@@ -224,7 +224,7 @@ impl PyAnonymousPipe {
     #[cfg(unix)]
     fn writer_fd(&self) -> PyResult<i32> {
         use std::os::unix::io::AsRawFd;
-        let writer = self.writer.as_ref().ok_or_else(|| IpcError::Closed)?;
+        let writer = self.writer.as_ref().ok_or(IpcError::Closed)?;
         Ok(writer.as_raw_fd())
     }
 
