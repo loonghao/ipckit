@@ -23,6 +23,10 @@ A high-performance, cross-platform IPC (Inter-Process Communication) library for
 - ⚡ **Native JSON** - Built-in fast JSON serialization using Rust's serde_json
 - 🛡️ **Graceful Shutdown** - Built-in support for graceful channel shutdown
 - 🔌 **Local Socket** - Unix Domain Socket / Named Pipe abstraction for cross-platform socket communication
+- 🧵 **Thread Channel** - High-performance intra-process thread communication
+- 📡 **Event Stream** - Real-time publish-subscribe event system
+- 📋 **Task Manager** - Task lifecycle management with progress tracking
+- 🌐 **Socket Server** - Multi-client socket server (like Docker's socket)
 
 ## 📦 Installation
 
@@ -307,6 +311,133 @@ print(result)
 - Built-in JSON serialization with length prefix
 - Simple client-server model
 
+### Thread Channel (Intra-Process Communication)
+
+High-performance channel for communication between threads within the same process.
+
+**Rust:**
+```rust
+use ipckit::ThreadChannel;
+use std::thread;
+
+fn main() {
+    // Create an unbounded channel
+    let (tx, rx) = ThreadChannel::<String>::unbounded();
+
+    // Spawn producer thread
+    let tx_clone = tx.clone();
+    thread::spawn(move || {
+        tx_clone.send("Hello from thread!".to_string()).unwrap();
+    });
+
+    // Receive in main thread
+    let msg = rx.recv().unwrap();
+    println!("Received: {}", msg);
+}
+```
+
+### Event Stream (Publish-Subscribe)
+
+Real-time event system for task progress, logs, and notifications.
+
+**Rust:**
+```rust
+use ipckit::{EventBus, Event, EventFilter};
+
+fn main() {
+    let bus = EventBus::new(Default::default());
+    let publisher = bus.publisher();
+
+    // Subscribe to task events
+    let subscriber = bus.subscribe(
+        EventFilter::new().event_type("task.*")
+    );
+
+    // Publish events
+    publisher.progress("task-123", 50, 100, "Half done");
+    publisher.log("task-123", "info", "Processing...");
+
+    // Receive events
+    while let Some(event) = subscriber.try_recv() {
+        println!("[{}] {:?}", event.event_type, event.data);
+    }
+}
+```
+
+### Task Manager (Task Lifecycle)
+
+Manage long-running tasks with progress tracking and cancellation support.
+
+**Rust:**
+```rust
+use ipckit::{TaskManager, TaskBuilder, TaskFilter};
+use std::time::Duration;
+
+fn main() {
+    let manager = TaskManager::new(Default::default());
+
+    // Spawn a task
+    let handle = manager.spawn("Upload files", "upload", |task| {
+        for i in 0..100 {
+            if task.is_cancelled() {
+                return;
+            }
+            task.set_progress(i + 1, Some(&format!("Step {}/100", i + 1)));
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        task.complete(serde_json::json!({"uploaded": 100}));
+    });
+
+    // List active tasks
+    let active = manager.list(&TaskFilter::new().active());
+    println!("Active tasks: {}", active.len());
+
+    // Cancel if needed
+    // manager.cancel(handle.id()).unwrap();
+}
+```
+
+### Socket Server (Multi-Client Server)
+
+Docker-style socket server for handling multiple client connections.
+
+**Rust:**
+```rust
+use ipckit::{SocketServer, SocketServerConfig, Message, FnHandler};
+
+fn main() -> ipckit::Result<()> {
+    let server = SocketServer::new(SocketServerConfig::with_path("my_server"))?;
+
+    // Handle connections with a simple function
+    let handler = FnHandler::new(|conn, msg| {
+        if msg.method() == Some("ping") {
+            Ok(Some(Message::response(serde_json::json!({"pong": true}))))
+        } else {
+            Ok(None)
+        }
+    });
+
+    // Run server (blocking)
+    server.run(handler)?;
+    Ok(())
+}
+```
+
+**Client:**
+```rust
+use ipckit::SocketClient;
+
+fn main() -> ipckit::Result<()> {
+    let mut client = SocketClient::connect("my_server")?;
+
+    // Send request and get response
+    let result = client.request("ping", serde_json::json!({}))?;
+    println!("Response: {:?}", result);
+
+    Ok(())
+}
+```
+
 ## 📖 IPC Methods Comparison
 
 | Method | Use Case | Performance | Complexity |
@@ -318,6 +449,10 @@ print(result)
 | **File Channel** | Frontend-backend | Moderate | Low |
 | **Graceful Channel** | Event loop integration | Fast | Low |
 | **Local Socket** | Cross-platform sockets | Fast | Low |
+| **Thread Channel** | Intra-process threads | Fastest | Low |
+| **Event Stream** | Publish-subscribe events | Fast | Low |
+| **Task Manager** | Task lifecycle | Fast | Medium |
+| **Socket Server** | Multi-client server | Fast | Medium |
 
 ## 🏗️ Architecture
 
@@ -339,6 +474,10 @@ print(result)
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │                  Local Socket Layer                     ││
 │  │     (LocalSocketListener, LocalSocketStream)            ││
+│  └─────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │                  High-Level Services                    ││
+│  │  (ThreadChannel, EventStream, TaskManager, SocketServer)││
 │  └─────────────────────────────────────────────────────────┘│
 ├─────────────────────────────────────────────────────────────┤
 │              Platform Abstraction Layer                      │
