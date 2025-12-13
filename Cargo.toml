@@ -26,10 +26,10 @@ interprocess = { version = "2", features = ["tokio"] }
 
 # Platform-specific
 libc = "0.2"
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Pipes", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Memory"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Pipes", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Memory"] }
 
 # Python bindings
-pyo3 = { version = "0.23", features = ["extension-module"] }
+pyo3 = { version = "0.27", features = ["extension-module"] }
 
 # Logging
 tracing = "0.1"
