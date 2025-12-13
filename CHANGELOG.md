@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.1.2](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.1...ipckit-v0.1.2) (2025-12-13)
+
+
+### Features
+
+* implement ThreadChannel, EventStream, TaskManager, and SocketServer - Closes [#13](https://github.com/loonghao/ipckit/issues/13), [#15](https://github.com/loonghao/ipckit/issues/15), [#16](https://github.com/loonghao/ipckit/issues/16), [#18](https://github.com/loonghao/ipckit/issues/18) ([6ade9d6](https://github.com/loonghao/ipckit/commit/6ade9d6c7881819ac98af6d0af8cef042bd72a89))
+
+
+### Bug Fixes
+
+* add missing IpcError import for Unix native backend ([57e545d](https://github.com/loonghao/ipckit/commit/57e545d3b7a66a5de0cb51ca52e317d89e0e3756))
+
+
+### Code Refactoring
+
+* split python.rs into bindings module for better maintainability ([1701411](https://github.com/loonghao/ipckit/commit/170141124dbb159d283e600561277b772c26e2b9))
+
+
+### Documentation
+
+* add LocalSocket and GracefulChannel usage examples ([1a2c50c](https://github.com/loonghao/ipckit/commit/1a2c50c90f40319483aa3ac6bd783251de3f46a4))
+
 ## [0.1.1](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.0...ipckit-v0.1.1) (2025-12-13)
 
 
