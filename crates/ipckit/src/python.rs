@@ -175,10 +175,11 @@ fn json_loads(py: Python<'_>, s: &str) -> PyResult<PyObject> {
 // ============================================================================
 
 /// Python wrapper for AnonymousPipe
+/// Uses Mutex to allow concurrent access from multiple threads
 #[pyclass(name = "AnonymousPipe")]
 pub struct PyAnonymousPipe {
-    reader: Option<crate::pipe::PipeReader>,
-    writer: Option<crate::pipe::PipeWriter>,
+    reader: std::sync::Mutex<Option<crate::pipe::PipeReader>>,
+    writer: std::sync::Mutex<Option<crate::pipe::PipeWriter>>,
 }
 
 #[pymethods]
@@ -189,14 +190,18 @@ impl PyAnonymousPipe {
         let pipe = RustAnonymousPipe::new()?;
         let (reader, writer) = pipe.split();
         Ok(Self {
-            reader: Some(reader),
-            writer: Some(writer),
+            reader: std::sync::Mutex::new(Some(reader)),
+            writer: std::sync::Mutex::new(Some(writer)),
         })
     }
 
     /// Read data from the pipe
-    fn read(&mut self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
-        let reader = self.reader.as_mut().ok_or(IpcError::Closed)?;
+    fn read(&self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
+        let mut guard = self
+            .reader
+            .lock()
+            .map_err(|_| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("Lock poisoned"))?;
+        let reader = guard.as_mut().ok_or(IpcError::Closed)?;
 
         let mut buf = vec![0u8; size];
         let n = py.allow_threads(|| reader.read(&mut buf))?;
@@ -206,9 +211,14 @@ impl PyAnonymousPipe {
     }
 
     /// Write data to the pipe
-    fn write(&mut self, py: Python<'_>, data: &[u8]) -> PyResult<usize> {
-        let writer = self.writer.as_mut().ok_or(IpcError::Closed)?;
-        let n = py.allow_threads(|| writer.write(data))?;
+    fn write(&self, py: Python<'_>, data: &[u8]) -> PyResult<usize> {
+        let mut guard = self
+            .writer
+            .lock()
+            .map_err(|_| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("Lock poisoned"))?;
+        let writer = guard.as_mut().ok_or(IpcError::Closed)?;
+        let data = data.to_vec(); // Clone data before releasing GIL
+        let n = py.allow_threads(|| writer.write(&data))?;
         Ok(n)
     }
 
@@ -216,7 +226,11 @@ impl PyAnonymousPipe {
     #[cfg(unix)]
     fn reader_fd(&self) -> PyResult<i32> {
         use std::os::unix::io::AsRawFd;
-        let reader = self.reader.as_ref().ok_or(IpcError::Closed)?;
+        let guard = self
+            .reader
+            .lock()
+            .map_err(|_| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("Lock poisoned"))?;
+        let reader = guard.as_ref().ok_or(IpcError::Closed)?;
         Ok(reader.as_raw_fd())
     }
 
@@ -224,19 +238,31 @@ impl PyAnonymousPipe {
     #[cfg(unix)]
     fn writer_fd(&self) -> PyResult<i32> {
         use std::os::unix::io::AsRawFd;
-        let writer = self.writer.as_ref().ok_or(IpcError::Closed)?;
+        let guard = self
+            .writer
+            .lock()
+            .map_err(|_| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("Lock poisoned"))?;
+        let writer = guard.as_ref().ok_or(IpcError::Closed)?;
         Ok(writer.as_raw_fd())
     }
 
     /// Take the reader end (for passing to child process)
-    fn take_reader(&mut self) -> PyResult<()> {
-        self.reader.take();
+    fn take_reader(&self) -> PyResult<()> {
+        let mut guard = self
+            .reader
+            .lock()
+            .map_err(|_| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("Lock poisoned"))?;
+        guard.take();
         Ok(())
     }
 
     /// Take the writer end (for passing to child process)
-    fn take_writer(&mut self) -> PyResult<()> {
-        self.writer.take();
+    fn take_writer(&self) -> PyResult<()> {
+        let mut guard = self
+            .writer
+            .lock()
+            .map_err(|_| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("Lock poisoned"))?;
+        guard.take();
         Ok(())
     }
 }
