@@ -39,7 +39,7 @@ impl PyAnonymousPipe {
         let reader = guard.as_mut().ok_or(IpcError::Closed)?;
 
         let mut buf = vec![0u8; size];
-        let n = py.allow_threads(|| reader.read(&mut buf))?;
+        let n = py.detach(|| reader.read(&mut buf))?;
         buf.truncate(n);
 
         Ok(PyBytes::new(py, &buf).into())
@@ -53,7 +53,7 @@ impl PyAnonymousPipe {
             .map_err(|_| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("Lock poisoned"))?;
         let writer = guard.as_mut().ok_or(IpcError::Closed)?;
         let data = data.to_vec(); // Clone data before releasing GIL
-        let n = py.allow_threads(|| writer.write(&data))?;
+        let n = py.detach(|| writer.write(&data))?;
         Ok(n)
     }
 
@@ -139,7 +139,7 @@ impl PyNamedPipe {
     /// Wait for a client to connect (server only)
     fn wait_for_client(&mut self, py: Python<'_>) -> PyResult<()> {
         // Release GIL to allow other Python threads to run
-        py.allow_threads(|| self.inner.wait_for_client())?;
+        py.detach(|| self.inner.wait_for_client())?;
         Ok(())
     }
 
@@ -147,7 +147,7 @@ impl PyNamedPipe {
     fn read(&mut self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
         let mut buf = vec![0u8; size];
         // Release GIL during blocking read
-        let n = py.allow_threads(|| self.inner.read(&mut buf))?;
+        let n = py.detach(|| self.inner.read(&mut buf))?;
         buf.truncate(n);
         Ok(PyBytes::new(py, &buf).into())
     }
@@ -155,7 +155,7 @@ impl PyNamedPipe {
     /// Write data to the pipe
     fn write(&mut self, py: Python<'_>, data: Vec<u8>) -> PyResult<usize> {
         // Release GIL during write
-        let n = py.allow_threads(|| self.inner.write(&data))?;
+        let n = py.detach(|| self.inner.write(&data))?;
         Ok(n)
     }
 
@@ -163,14 +163,14 @@ impl PyNamedPipe {
     fn read_exact(&mut self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
         let mut buf = vec![0u8; size];
         // Release GIL during blocking read
-        py.allow_threads(|| self.inner.read_exact(&mut buf))?;
+        py.detach(|| self.inner.read_exact(&mut buf))?;
         Ok(PyBytes::new(py, &buf).into())
     }
 
     /// Write all data
     fn write_all(&mut self, py: Python<'_>, data: Vec<u8>) -> PyResult<()> {
         // Release GIL during write
-        py.allow_threads(|| self.inner.write_all(&data))?;
+        py.detach(|| self.inner.write_all(&data))?;
         Ok(())
     }
 }
