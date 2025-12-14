@@ -233,9 +233,15 @@ jobs:
     if: always()
     steps:
       - name: Check results
-        shell: bash
+        env:
+          PRE_BUILD_RESULT: ${{ needs.pre-build.result }}
+          QUICK_CHECKS_RESULT: ${{ needs.quick-checks.result }}
+          CLIPPY_RESULT: ${{ needs.clippy.result }}
+          PYTHON_TESTS_RESULT: ${{ needs.python-tests.result }}
+          RUST_TESTS_RESULT: ${{ needs.rust-tests.result }}
+          WHEEL_VALIDATION_RESULT: ${{ needs.wheel-validation.result }}
         run: |
-          echo "## PR Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "## PR Check Results" >> "$GITHUB_STEP_SUMMARY"
 
           failed=0
 
@@ -243,27 +249,27 @@ jobs:
             local job_name=$1
             local result=$2
             if [[ "$result" == "success" ]]; then
-              echo "- ✅ $job_name" >> $GITHUB_STEP_SUMMARY
+              echo "- ✅ $job_name" >> "$GITHUB_STEP_SUMMARY"
             elif [[ "$result" == "skipped" ]]; then
-              echo "- ⏭️ $job_name (skipped)" >> $GITHUB_STEP_SUMMARY
+              echo "- ⏭️ $job_name (skipped)" >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "- ❌ $job_name ($result)" >> $GITHUB_STEP_SUMMARY
+              echo "- ❌ $job_name ($result)" >> "$GITHUB_STEP_SUMMARY"
               failed=1
             fi
           }
 
-          check_result "pre-build" "${{ needs.pre-build.result }}"
-          check_result "quick-checks" "${{ needs.quick-checks.result }}"
-          check_result "clippy" "${{ needs.clippy.result }}"
-          check_result "python-tests" "${{ needs.python-tests.result }}"
-          check_result "rust-tests" "${{ needs.rust-tests.result }}"
-          check_result "wheel-validation" "${{ needs.wheel-validation.result }}"
+          check_result "pre-build" "$PRE_BUILD_RESULT"
+          check_result "quick-checks" "$QUICK_CHECKS_RESULT"
+          check_result "clippy" "$CLIPPY_RESULT"
+          check_result "python-tests" "$PYTHON_TESTS_RESULT"
+          check_result "rust-tests" "$RUST_TESTS_RESULT"
+          check_result "wheel-validation" "$WHEEL_VALIDATION_RESULT"
 
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "" >> "$GITHUB_STEP_SUMMARY"
 
           if [[ $failed -eq 1 ]]; then
-            echo "❌ **PR is not ready for merge**" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **PR is not ready for merge**" >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
 
-          echo "✅ **PR is ready for merge!**" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **PR is ready for merge!**" >> "$GITHUB_STEP_SUMMARY"
