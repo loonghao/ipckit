@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.3](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.2...ipckit-v0.1.3) (2025-12-14)
+
+
+### Features
+
+* implement remaining GitHub issues ([#8](https://github.com/loonghao/ipckit/issues/8), [#9](https://github.com/loonghao/ipckit/issues/9), [#10](https://github.com/loonghao/ipckit/issues/10), [#11](https://github.com/loonghao/ipckit/issues/11), [#12](https://github.com/loonghao/ipckit/issues/12), [#14](https://github.com/loonghao/ipckit/issues/14)) ([c60d274](https://github.com/loonghao/ipckit/commit/c60d2748c1ce72a67e5817673227f3a998512d97))
+
+
+### Bug Fixes
+
+* quote GITHUB_STEP_SUMMARY variable in pr-checks workflow ([7929ba9](https://github.com/loonghao/ipckit/commit/7929ba9a59d8ee44f7285c76fb6f993b7904f08a))
+* replace deprecated pyo3 APIs (downcast -&gt; cast_exact, allow_threads -&gt; detach, PyObject -&gt; Py&lt;PyAny&gt;) ([b755572](https://github.com/loonghao/ipckit/commit/b7555724fd2c82a7ffbc57e2ea32cc1d05bcc330))
+
 ## [0.1.2](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.1...ipckit-v0.1.2) (2025-12-13)
 
 
