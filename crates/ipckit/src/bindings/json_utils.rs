@@ -15,12 +15,12 @@ pub fn py_to_json_value(obj: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
     }
 
     // Bool (must check before int, as bool is subclass of int in Python)
-    if let Ok(b) = obj.downcast::<PyBool>() {
+    if let Ok(b) = obj.clone().into_any().cast_exact::<PyBool>() {
         return Ok(serde_json::Value::Bool(b.is_true()));
     }
 
     // Int
-    if let Ok(i) = obj.downcast::<PyInt>() {
+    if let Ok(i) = obj.clone().into_any().cast_exact::<PyInt>() {
         if let Ok(v) = i.extract::<i64>() {
             return Ok(serde_json::Value::Number(v.into()));
         }
@@ -39,7 +39,7 @@ pub fn py_to_json_value(obj: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
     }
 
     // Float
-    if let Ok(f) = obj.downcast::<PyFloat>() {
+    if let Ok(f) = obj.clone().into_any().cast_exact::<PyFloat>() {
         let v: f64 = f.extract()?;
         if let Some(n) = serde_json::Number::from_f64(v) {
             return Ok(serde_json::Value::Number(n));
@@ -51,13 +51,13 @@ pub fn py_to_json_value(obj: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
     }
 
     // String
-    if let Ok(s) = obj.downcast::<PyString>() {
+    if let Ok(s) = obj.clone().into_any().cast_exact::<PyString>() {
         let v: String = s.extract()?;
         return Ok(serde_json::Value::String(v));
     }
 
     // Bytes -> base64 string
-    if let Ok(b) = obj.downcast::<PyBytes>() {
+    if let Ok(b) = obj.clone().into_any().cast_exact::<PyBytes>() {
         let bytes: &[u8] = b.as_bytes();
         // Use base64 encoding for bytes
         use base64::Engine;
@@ -66,7 +66,7 @@ pub fn py_to_json_value(obj: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
     }
 
     // List
-    if let Ok(list) = obj.downcast::<PyList>() {
+    if let Ok(list) = obj.clone().into_any().cast_exact::<PyList>() {
         let mut arr = Vec::with_capacity(list.len());
         for item in list.iter() {
             arr.push(py_to_json_value(&item)?);
@@ -75,7 +75,7 @@ pub fn py_to_json_value(obj: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
     }
 
     // Dict
-    if let Ok(dict) = obj.downcast::<PyDict>() {
+    if let Ok(dict) = obj.clone().into_any().cast_exact::<PyDict>() {
         let mut map = serde_json::Map::new();
         for (key, value) in dict.iter() {
             let key_str: String = key.extract().map_err(|_| {
@@ -94,7 +94,7 @@ pub fn py_to_json_value(obj: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
 }
 
 /// Convert serde_json::Value to Python object
-pub fn json_value_to_py(py: Python<'_>, value: &serde_json::Value) -> PyResult<PyObject> {
+pub fn json_value_to_py(py: Python<'_>, value: &serde_json::Value) -> PyResult<Py<PyAny>> {
     match value {
         serde_json::Value::Null => Ok(py.None()),
         serde_json::Value::Bool(b) => Ok(b.into_pyobject(py)?.to_owned().into_any().unbind()),
@@ -147,7 +147,7 @@ pub fn json_dumps_pretty(obj: &Bound<'_, PyAny>) -> PyResult<String> {
 
 /// Deserialize JSON string to Python object using Rust's serde_json
 #[pyfunction]
-pub fn json_loads(py: Python<'_>, s: &str) -> PyResult<PyObject> {
+pub fn json_loads(py: Python<'_>, s: &str) -> PyResult<Py<PyAny>> {
     let value: serde_json::Value = serde_json::from_str(s)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
     json_value_to_py(py, &value)

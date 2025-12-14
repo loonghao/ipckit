@@ -49,19 +49,19 @@ impl PyIpcChannel {
     /// Wait for a client to connect (server only)
     fn wait_for_client(&mut self, py: Python<'_>) -> PyResult<()> {
         // Release GIL to allow other Python threads to run
-        py.allow_threads(|| self.inner.wait_for_client())?;
+        py.detach(|| self.inner.wait_for_client())?;
         Ok(())
     }
 
     /// Send bytes through the channel
     fn send(&mut self, py: Python<'_>, data: Vec<u8>) -> PyResult<()> {
-        py.allow_threads(|| self.inner.send_bytes(&data))?;
+        py.detach(|| self.inner.send_bytes(&data))?;
         Ok(())
     }
 
     /// Receive bytes from the channel
     fn recv(&mut self, py: Python<'_>) -> PyResult<Py<PyBytes>> {
-        let data = py.allow_threads(|| self.inner.recv_bytes())?;
+        let data = py.detach(|| self.inner.recv_bytes())?;
         Ok(PyBytes::new(py, &data).into())
     }
 
@@ -70,13 +70,13 @@ impl PyIpcChannel {
         let value = py_to_json_value(obj)?;
         let json_bytes = serde_json::to_vec(&value)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-        py.allow_threads(|| self.inner.send_bytes(&json_bytes))?;
+        py.detach(|| self.inner.send_bytes(&json_bytes))?;
         Ok(())
     }
 
     /// Receive a JSON object (uses Rust serde_json)
-    fn recv_json(&mut self, py: Python<'_>) -> PyResult<PyObject> {
-        let data = py.allow_threads(|| self.inner.recv_bytes())?;
+    fn recv_json(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let data = py.detach(|| self.inner.recv_bytes())?;
         let value: serde_json::Value =
             serde_json::from_slice(&data).map_err(|e| IpcError::deserialization(e.to_string()))?;
         json_value_to_py(py, &value)
@@ -141,7 +141,7 @@ impl PyFileChannel {
     }
 
     /// Receive all new messages
-    fn recv(&mut self, py: Python<'_>) -> PyResult<PyObject> {
+    fn recv(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let messages = self.inner.recv()?;
         let list = PyList::empty(py);
         for msg in messages {
@@ -151,7 +151,7 @@ impl PyFileChannel {
     }
 
     /// Receive a single new message (non-blocking)
-    fn recv_one(&mut self, py: Python<'_>) -> PyResult<PyObject> {
+    fn recv_one(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         match self.inner.recv_one()? {
             Some(msg) => file_message_to_py(py, msg),
             None => Ok(py.None()),
@@ -164,7 +164,7 @@ impl PyFileChannel {
         py: Python<'_>,
         request_id: &str,
         timeout_ms: u64,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let timeout = Duration::from_millis(timeout_ms);
         let msg = self.inner.wait_response(request_id, timeout)?;
         file_message_to_py(py, msg)
@@ -178,7 +178,7 @@ impl PyFileChannel {
 }
 
 /// Convert FileMessage to Python dict (all in Rust, no Python json module)
-fn file_message_to_py(py: Python<'_>, msg: RustFileMessage) -> PyResult<PyObject> {
+fn file_message_to_py(py: Python<'_>, msg: RustFileMessage) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
 
     dict.set_item("id", &msg.id)?;

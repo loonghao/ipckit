@@ -180,7 +180,7 @@ impl PyLocalSocketStream {
     }
 
     /// Receive a JSON object
-    fn recv_json(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn recv_json(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let mut guard = self.inner.lock();
 
         // Read length prefix (4 bytes, big-endian)

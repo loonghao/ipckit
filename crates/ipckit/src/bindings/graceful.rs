@@ -61,7 +61,7 @@ impl PyGracefulNamedPipe {
     /// Wait for a client to connect (server only)
     fn wait_for_client(&mut self, py: Python<'_>) -> PyResult<()> {
         // Release GIL to allow other Python threads to run
-        py.allow_threads(|| self.inner.wait_for_client())?;
+        py.detach(|| self.inner.wait_for_client())?;
         Ok(())
     }
 
@@ -77,7 +77,7 @@ impl PyGracefulNamedPipe {
 
     /// Wait for all pending operations to complete
     fn drain(&self, py: Python<'_>) -> PyResult<()> {
-        py.allow_threads(|| self.inner.drain())?;
+        py.detach(|| self.inner.drain())?;
         Ok(())
     }
 
@@ -87,7 +87,7 @@ impl PyGracefulNamedPipe {
     /// Raises TimeoutError if the drain doesn't complete within the timeout.
     fn shutdown_timeout(&self, py: Python<'_>, timeout_ms: u64) -> PyResult<()> {
         let timeout = Duration::from_millis(timeout_ms);
-        py.allow_threads(|| self.inner.shutdown_timeout(timeout))?;
+        py.detach(|| self.inner.shutdown_timeout(timeout))?;
         Ok(())
     }
 
@@ -95,7 +95,7 @@ impl PyGracefulNamedPipe {
     fn read(&mut self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
         let mut buf = vec![0u8; size];
         // Release GIL during blocking read
-        let n = py.allow_threads(|| self.inner.read(&mut buf))?;
+        let n = py.detach(|| self.inner.read(&mut buf))?;
         buf.truncate(n);
         Ok(PyBytes::new(py, &buf).into())
     }
@@ -103,7 +103,7 @@ impl PyGracefulNamedPipe {
     /// Write data to the pipe
     fn write(&mut self, py: Python<'_>, data: Vec<u8>) -> PyResult<usize> {
         // Release GIL during write
-        let n = py.allow_threads(|| self.inner.write(&data))?;
+        let n = py.detach(|| self.inner.write(&data))?;
         Ok(n)
     }
 
@@ -111,14 +111,14 @@ impl PyGracefulNamedPipe {
     fn read_exact(&mut self, py: Python<'_>, size: usize) -> PyResult<Py<PyBytes>> {
         let mut buf = vec![0u8; size];
         // Release GIL during blocking read
-        py.allow_threads(|| self.inner.read_exact(&mut buf))?;
+        py.detach(|| self.inner.read_exact(&mut buf))?;
         Ok(PyBytes::new(py, &buf).into())
     }
 
     /// Write all data
     fn write_all(&mut self, py: Python<'_>, data: Vec<u8>) -> PyResult<()> {
         // Release GIL during write
-        py.allow_threads(|| self.inner.write_all(&data))?;
+        py.detach(|| self.inner.write_all(&data))?;
         Ok(())
     }
 }
@@ -170,7 +170,7 @@ impl PyGracefulIpcChannel {
     /// Wait for a client to connect (server only)
     fn wait_for_client(&mut self, py: Python<'_>) -> PyResult<()> {
         // Release GIL to allow other Python threads to run
-        py.allow_threads(|| self.inner.wait_for_client())?;
+        py.detach(|| self.inner.wait_for_client())?;
         Ok(())
     }
 
@@ -186,7 +186,7 @@ impl PyGracefulIpcChannel {
 
     /// Wait for all pending operations to complete
     fn drain(&self, py: Python<'_>) -> PyResult<()> {
-        py.allow_threads(|| self.inner.drain())?;
+        py.detach(|| self.inner.drain())?;
         Ok(())
     }
 
@@ -196,19 +196,19 @@ impl PyGracefulIpcChannel {
     /// Raises TimeoutError if the drain doesn't complete within the timeout.
     fn shutdown_timeout(&self, py: Python<'_>, timeout_ms: u64) -> PyResult<()> {
         let timeout = Duration::from_millis(timeout_ms);
-        py.allow_threads(|| self.inner.shutdown_timeout(timeout))?;
+        py.detach(|| self.inner.shutdown_timeout(timeout))?;
         Ok(())
     }
 
     /// Send bytes through the channel
     fn send(&mut self, py: Python<'_>, data: Vec<u8>) -> PyResult<()> {
-        py.allow_threads(|| self.inner.send_bytes(&data))?;
+        py.detach(|| self.inner.send_bytes(&data))?;
         Ok(())
     }
 
     /// Receive bytes from the channel
     fn recv(&mut self, py: Python<'_>) -> PyResult<Py<PyBytes>> {
-        let data = py.allow_threads(|| self.inner.recv_bytes())?;
+        let data = py.detach(|| self.inner.recv_bytes())?;
         Ok(PyBytes::new(py, &data).into())
     }
 
@@ -217,13 +217,13 @@ impl PyGracefulIpcChannel {
         let value = py_to_json_value(obj)?;
         let json_bytes = serde_json::to_vec(&value)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-        py.allow_threads(|| self.inner.send_bytes(&json_bytes))?;
+        py.detach(|| self.inner.send_bytes(&json_bytes))?;
         Ok(())
     }
 
     /// Receive a JSON object (uses Rust serde_json)
-    fn recv_json(&mut self, py: Python<'_>) -> PyResult<PyObject> {
-        let data = py.allow_threads(|| self.inner.recv_bytes())?;
+    fn recv_json(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let data = py.detach(|| self.inner.recv_bytes())?;
         let value: serde_json::Value =
             serde_json::from_slice(&data).map_err(|e| IpcError::deserialization(e.to_string()))?;
         json_value_to_py(py, &value)
