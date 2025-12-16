@@ -11,16 +11,21 @@
 //! - `graceful`: GracefulNamedPipe and GracefulIpcChannel bindings
 //! - `socket`: LocalSocketListener and LocalSocketStream bindings
 //! - `cli_bridge`: CLI Bridge bindings for CLI tool integration
+//! - `metrics`: ChannelMetrics bindings for performance monitoring
+//! - `api_server`: API Server bindings for HTTP-over-Socket RESTful API
 
+mod api_server;
 mod channel;
 mod cli_bridge;
 mod graceful;
 mod json_utils;
+mod metrics;
 mod pipe;
 mod shm;
 mod socket;
 
 // Re-export all Python classes
+pub use api_server::{PyApiClient, PyApiServerConfig, PyRequest, PyResponse};
 pub use channel::{PyFileChannel, PyIpcChannel};
 pub use cli_bridge::{
     parse_progress, wrap_command, PyCliBridge, PyCliBridgeConfig, PyCommandOutput, PyProgressInfo,
@@ -29,6 +34,7 @@ pub use graceful::{PyGracefulIpcChannel, PyGracefulNamedPipe};
 pub use json_utils::{
     json_dumps, json_dumps_pretty, json_loads, json_value_to_py, py_to_json_value,
 };
+pub use metrics::{PyChannelMetrics, PyMetricsSnapshot};
 pub use pipe::{PyAnonymousPipe, PyNamedPipe};
 pub use shm::PySharedMemory;
 pub use socket::{PyLocalSocketListener, PyLocalSocketStream};
@@ -62,6 +68,16 @@ pub fn ipckit_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(wrap_command, m)?)?;
     m.add_function(wrap_pyfunction!(parse_progress, m)?)?;
 
+    // Metrics classes (Issue #10: ChannelMetrics)
+    m.add_class::<PyChannelMetrics>()?;
+    m.add_class::<PyMetricsSnapshot>()?;
+
+    // API Server classes (Issue #14: API Server)
+    m.add_class::<PyApiServerConfig>()?;
+    m.add_class::<PyRequest>()?;
+    m.add_class::<PyResponse>()?;
+    m.add_class::<PyApiClient>()?;
+
     // JSON utilities (Rust-native, faster than Python's json module)
     m.add_function(wrap_pyfunction!(json_dumps, m)?)?;
     m.add_function(wrap_pyfunction!(json_dumps_pretty, m)?)?;
@@ -93,6 +109,16 @@ CLI Bridge (for CLI tool integration):
 - CliBridgeConfig: Configuration for CLI bridge
 - wrap_command(): Wrap a subprocess with CLI bridge integration
 - parse_progress(): Parse progress from output lines
+
+Metrics (Issue #10: Performance monitoring):
+- ChannelMetrics: Track message counts, latency, throughput
+- MetricsSnapshot: Point-in-time snapshot of metrics
+
+API Server (Issue #14: HTTP-over-Socket RESTful API):
+- ApiServerConfig: Configuration for API server
+- Request: HTTP request object
+- Response: HTTP response object
+- ApiClient: Client for making API requests
 
 JSON utilities (faster than Python's json module):
 - json_dumps(obj): Serialize Python object to JSON string
@@ -126,6 +152,16 @@ Example:
     # Wrap a subprocess
     output = ipckit.wrap_command(['pip', 'install', 'requests'], task_name='Install')
     print(f'Exit code: {output.exit_code}')
+
+    # Metrics usage
+    metrics = ipckit.ChannelMetrics()
+    metrics.record_send(100)
+    print(f'Messages sent: {metrics.messages_sent}')
+    print(metrics.to_prometheus('ipckit'))
+
+    # API Client usage
+    client = ipckit.ApiClient.connect()
+    tasks = client.get('/v1/tasks')
 ",
     )?;
 

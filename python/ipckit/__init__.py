@@ -18,6 +18,16 @@ CLI Bridge (for CLI tool integration):
 - wrap_command(): Wrap a subprocess with CLI bridge integration
 - parse_progress(): Parse progress from output lines
 
+Metrics (Issue #10: Performance monitoring):
+- ChannelMetrics: Track message counts, latency, throughput
+- MetricsSnapshot: Point-in-time snapshot of metrics
+
+API Server (Issue #14: HTTP-over-Socket RESTful API):
+- ApiServerConfig: Configuration for API server
+- Request: HTTP request object
+- Response: HTTP response object
+- ApiClient: Client for making API requests
+
 JSON utilities (faster than Python's json module, powered by Rust serde_json):
 - json_dumps(obj): Serialize Python object to JSON string
 - json_dumps_pretty(obj): Serialize with pretty formatting
@@ -65,10 +75,27 @@ Example:
     # Method 2: Wrapping a subprocess
     output = wrap_command(['pip', 'install', 'requests'], task_name='Install')
     print(f'Exit code: {output.exit_code}')
+
+    # Metrics usage
+    from ipckit import ChannelMetrics
+
+    metrics = ChannelMetrics()
+    metrics.record_send(100)
+    print(f'Messages sent: {metrics.messages_sent}')
+    print(metrics.to_prometheus('ipckit'))
+
+    # API Client usage
+    from ipckit import ApiClient
+
+    client = ApiClient.connect()
+    tasks = client.get('/v1/tasks')
 """
 
 from .ipckit import (
     AnonymousPipe,
+    ApiClient,
+    ApiServerConfig,
+    ChannelMetrics,
     CliBridge,
     CliBridgeConfig,
     CommandOutput,
@@ -76,8 +103,11 @@ from .ipckit import (
     GracefulIpcChannel,
     GracefulNamedPipe,
     IpcChannel,
+    MetricsSnapshot,
     NamedPipe,
     ProgressInfo,
+    Request,
+    Response,
     SharedMemory,
     __version__,
     json_dumps,
@@ -88,21 +118,34 @@ from .ipckit import (
 )
 
 __all__ = [
+    # Core IPC
     "AnonymousPipe",
     "NamedPipe",
     "SharedMemory",
     "IpcChannel",
     "FileChannel",
+    # Graceful shutdown
     "GracefulNamedPipe",
     "GracefulIpcChannel",
+    # CLI Bridge
     "CliBridge",
     "CliBridgeConfig",
     "ProgressInfo",
     "CommandOutput",
     "wrap_command",
     "parse_progress",
+    # Metrics (Issue #10)
+    "ChannelMetrics",
+    "MetricsSnapshot",
+    # API Server (Issue #14)
+    "ApiServerConfig",
+    "Request",
+    "Response",
+    "ApiClient",
+    # JSON utilities
     "json_dumps",
     "json_dumps_pretty",
     "json_loads",
+    # Version
     "__version__",
 ]
