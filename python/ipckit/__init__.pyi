@@ -996,3 +996,518 @@ def parse_progress(line: str, parser_type: str = "all") -> ProgressInfo | None:
             print(f"Progress: {info.percentage}%")
     """
     ...
+
+# Metrics classes (Issue #10: Performance monitoring)
+
+class ChannelMetrics:
+    """Performance metrics for IPC channels.
+
+    Tracks message counts, byte throughput, errors, latency, and queue depth.
+    All operations are thread-safe using atomic counters.
+
+    Example:
+        metrics = ChannelMetrics()
+        metrics.record_send(100)  # Record 100 bytes sent
+        metrics.record_recv(50)   # Record 50 bytes received
+        metrics.record_latency_us(150)  # Record 150µs latency
+
+        print(f"Messages sent: {metrics.messages_sent}")
+        print(f"Avg latency: {metrics.avg_latency_us}µs")
+        print(metrics.to_prometheus('ipckit'))
+    """
+
+    def __init__(self) -> None:
+        """Create a new metrics instance."""
+        ...
+
+    def record_send(self, bytes: int) -> None:
+        """Record a message sent with the given byte count."""
+        ...
+
+    def record_recv(self, bytes: int) -> None:
+        """Record a message received with the given byte count."""
+        ...
+
+    def record_send_error(self) -> None:
+        """Record a send error."""
+        ...
+
+    def record_recv_error(self) -> None:
+        """Record a receive error."""
+        ...
+
+    def record_latency_us(self, latency_us: int) -> None:
+        """Record latency in microseconds."""
+        ...
+
+    def record_latency_ms(self, latency_ms: int) -> None:
+        """Record latency in milliseconds."""
+        ...
+
+    def set_queue_depth(self, depth: int) -> None:
+        """Update the current queue depth."""
+        ...
+
+    @property
+    def messages_sent(self) -> int:
+        """Get total messages sent."""
+        ...
+
+    @property
+    def messages_received(self) -> int:
+        """Get total messages received."""
+        ...
+
+    @property
+    def bytes_sent(self) -> int:
+        """Get total bytes sent."""
+        ...
+
+    @property
+    def bytes_received(self) -> int:
+        """Get total bytes received."""
+        ...
+
+    @property
+    def send_errors(self) -> int:
+        """Get send error count."""
+        ...
+
+    @property
+    def receive_errors(self) -> int:
+        """Get receive error count."""
+        ...
+
+    @property
+    def queue_depth(self) -> int:
+        """Get current queue depth."""
+        ...
+
+    @property
+    def peak_queue_depth(self) -> int:
+        """Get peak queue depth."""
+        ...
+
+    @property
+    def avg_latency_us(self) -> int:
+        """Get average latency in microseconds."""
+        ...
+
+    @property
+    def min_latency_us(self) -> int | None:
+        """Get minimum latency in microseconds."""
+        ...
+
+    @property
+    def max_latency_us(self) -> int:
+        """Get maximum latency in microseconds."""
+        ...
+
+    def latency_percentile(self, percentile: int) -> int:
+        """Get latency percentile (e.g., 99 for p99)."""
+        ...
+
+    @property
+    def elapsed_secs(self) -> float:
+        """Get elapsed time since metrics started."""
+        ...
+
+    @property
+    def send_throughput(self) -> float:
+        """Get send throughput in messages per second."""
+        ...
+
+    @property
+    def recv_throughput(self) -> float:
+        """Get receive throughput in messages per second."""
+        ...
+
+    @property
+    def send_bandwidth(self) -> float:
+        """Get send bandwidth in bytes per second."""
+        ...
+
+    @property
+    def recv_bandwidth(self) -> float:
+        """Get receive bandwidth in bytes per second."""
+        ...
+
+    def reset(self) -> None:
+        """Reset all metrics."""
+        ...
+
+    def snapshot(self) -> dict[str, Any]:
+        """Get a snapshot of all metrics as a dict."""
+        ...
+
+    def to_json(self) -> str:
+        """Export metrics as JSON string."""
+        ...
+
+    def to_json_pretty(self) -> str:
+        """Export metrics as pretty JSON string."""
+        ...
+
+    def to_prometheus(self, prefix: str) -> str:
+        """Export metrics in Prometheus format.
+
+        Args:
+            prefix: Metric name prefix (e.g., 'ipckit')
+
+        Returns:
+            Prometheus-formatted metrics string
+        """
+        ...
+
+class MetricsSnapshot:
+    """A point-in-time snapshot of channel metrics."""
+
+    @property
+    def messages_sent(self) -> int:
+        """Total messages sent."""
+        ...
+
+    @property
+    def messages_received(self) -> int:
+        """Total messages received."""
+        ...
+
+    @property
+    def bytes_sent(self) -> int:
+        """Total bytes sent."""
+        ...
+
+    @property
+    def bytes_received(self) -> int:
+        """Total bytes received."""
+        ...
+
+    @property
+    def send_errors(self) -> int:
+        """Send error count."""
+        ...
+
+    @property
+    def receive_errors(self) -> int:
+        """Receive error count."""
+        ...
+
+    @property
+    def queue_depth(self) -> int:
+        """Current queue depth."""
+        ...
+
+    @property
+    def peak_queue_depth(self) -> int:
+        """Peak queue depth."""
+        ...
+
+    @property
+    def avg_latency_us(self) -> int:
+        """Average latency in microseconds."""
+        ...
+
+    @property
+    def min_latency_us(self) -> int | None:
+        """Minimum latency in microseconds."""
+        ...
+
+    @property
+    def max_latency_us(self) -> int:
+        """Maximum latency in microseconds."""
+        ...
+
+    @property
+    def p50_latency_us(self) -> int:
+        """50th percentile latency."""
+        ...
+
+    @property
+    def p95_latency_us(self) -> int:
+        """95th percentile latency."""
+        ...
+
+    @property
+    def p99_latency_us(self) -> int:
+        """99th percentile latency."""
+        ...
+
+    @property
+    def elapsed_secs(self) -> float:
+        """Elapsed time in seconds."""
+        ...
+
+    @property
+    def send_throughput(self) -> float:
+        """Send throughput (messages/second)."""
+        ...
+
+    @property
+    def recv_throughput(self) -> float:
+        """Receive throughput (messages/second)."""
+        ...
+
+    @property
+    def send_bandwidth(self) -> float:
+        """Send bandwidth (bytes/second)."""
+        ...
+
+    @property
+    def recv_bandwidth(self) -> float:
+        """Receive bandwidth (bytes/second)."""
+        ...
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dict."""
+        ...
+
+# API Server classes (Issue #14: HTTP-over-Socket RESTful API)
+
+class ApiServerConfig:
+    """Configuration for API Server.
+
+    Attributes:
+        socket_path: Socket path for the server
+        enable_cors: Whether to enable CORS
+        cors_origins: List of allowed CORS origins
+    """
+
+    def __init__(
+        self,
+        socket_path: str | None = None,
+        enable_cors: bool = True,
+        cors_origins: list[str] | None = None,
+    ) -> None:
+        """Create a new configuration.
+
+        Args:
+            socket_path: Socket path for the server
+            enable_cors: Whether to enable CORS (default: True)
+            cors_origins: List of allowed origins (default: ["*"])
+        """
+        ...
+
+    @property
+    def socket_path(self) -> str:
+        """Get the socket path."""
+        ...
+
+    @socket_path.setter
+    def socket_path(self, path: str) -> None:
+        """Set the socket path."""
+        ...
+
+    @property
+    def enable_cors(self) -> bool:
+        """Get CORS enabled setting."""
+        ...
+
+    @enable_cors.setter
+    def enable_cors(self, value: bool) -> None:
+        """Set CORS enabled."""
+        ...
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """Get CORS allowed origins."""
+        ...
+
+    @cors_origins.setter
+    def cors_origins(self, origins: list[str]) -> None:
+        """Set CORS allowed origins."""
+        ...
+
+class Request:
+    """HTTP Request object.
+
+    Attributes:
+        method: HTTP method (GET, POST, PUT, DELETE, etc.)
+        path: Request path
+        query: Query parameters as dict
+        headers: Request headers as dict
+        params: Path parameters as dict
+        body: Request body (parsed JSON or None)
+    """
+
+    @property
+    def method(self) -> str:
+        """Get HTTP method."""
+        ...
+
+    @property
+    def path(self) -> str:
+        """Get request path."""
+        ...
+
+    @property
+    def query(self) -> dict[str, str]:
+        """Get query parameters."""
+        ...
+
+    @property
+    def headers(self) -> dict[str, str]:
+        """Get request headers."""
+        ...
+
+    @property
+    def params(self) -> dict[str, str]:
+        """Get path parameters."""
+        ...
+
+    @property
+    def body(self) -> Any:
+        """Get request body."""
+        ...
+
+    def query_param(self, name: str) -> str | None:
+        """Get a query parameter by name."""
+        ...
+
+    def path_param(self, name: str) -> str | None:
+        """Get a path parameter by name."""
+        ...
+
+    def header(self, name: str) -> str | None:
+        """Get a header value by name (case-insensitive)."""
+        ...
+
+class Response:
+    """HTTP Response object.
+
+    Example:
+        # Create responses
+        resp = Response.ok({"data": [1, 2, 3]})
+        resp = Response.created({"id": "new-item"})
+        resp = Response.not_found()
+        resp = Response.bad_request("Invalid input")
+
+        # Custom response
+        resp = Response(status=202)
+        resp.set_header("X-Custom", "value")
+        resp.set_json({"status": "accepted"})
+    """
+
+    def __init__(self, status: int = 200) -> None:
+        """Create a new response with status code."""
+        ...
+
+    @staticmethod
+    def ok(body: Any) -> Response:
+        """Create a 200 OK response with JSON body."""
+        ...
+
+    @staticmethod
+    def created(body: Any) -> Response:
+        """Create a 201 Created response with JSON body."""
+        ...
+
+    @staticmethod
+    def no_content() -> Response:
+        """Create a 204 No Content response."""
+        ...
+
+    @staticmethod
+    def bad_request(message: str) -> Response:
+        """Create a 400 Bad Request response."""
+        ...
+
+    @staticmethod
+    def not_found() -> Response:
+        """Create a 404 Not Found response."""
+        ...
+
+    @staticmethod
+    def internal_error(message: str) -> Response:
+        """Create a 500 Internal Server Error response."""
+        ...
+
+    def set_header(self, key: str, value: str) -> None:
+        """Set a response header."""
+        ...
+
+    def set_json(self, body: Any) -> None:
+        """Set the response body as JSON."""
+        ...
+
+    @property
+    def status(self) -> int:
+        """Get the status code."""
+        ...
+
+class ApiClient:
+    """Client for making HTTP requests to the API server.
+
+    Example:
+        client = ApiClient.connect()
+
+        # GET request
+        tasks = client.get('/v1/tasks')
+
+        # POST request
+        new_task = client.post('/v1/tasks', {'name': 'my-task'})
+
+        # PUT request
+        updated = client.put('/v1/tasks/123', {'name': 'updated'})
+
+        # DELETE request
+        client.delete('/v1/tasks/123')
+    """
+
+    def __init__(self, socket_path: str) -> None:
+        """Create a new API client.
+
+        Args:
+            socket_path: Path to the socket
+        """
+        ...
+
+    @staticmethod
+    def connect() -> ApiClient:
+        """Connect to the default socket."""
+        ...
+
+    def get(self, path: str) -> Any:
+        """Make a GET request.
+
+        Args:
+            path: Request path (e.g., '/v1/tasks')
+
+        Returns:
+            Response body as Python object
+        """
+        ...
+
+    def post(self, path: str, body: Any | None = None) -> Any:
+        """Make a POST request.
+
+        Args:
+            path: Request path
+            body: Request body (will be serialized to JSON)
+
+        Returns:
+            Response body as Python object
+        """
+        ...
+
+    def put(self, path: str, body: Any | None = None) -> Any:
+        """Make a PUT request.
+
+        Args:
+            path: Request path
+            body: Request body (will be serialized to JSON)
+
+        Returns:
+            Response body as Python object
+        """
+        ...
+
+    def delete(self, path: str) -> Any:
+        """Make a DELETE request.
+
+        Args:
+            path: Request path
+
+        Returns:
+            Response body as Python object
+        """
+        ...
