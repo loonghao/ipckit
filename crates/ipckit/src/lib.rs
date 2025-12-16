@@ -35,6 +35,7 @@
 
 pub mod api_server;
 pub mod channel;
+pub mod cli_bridge;
 pub mod error;
 pub mod event_stream;
 pub mod file_channel;
@@ -98,6 +99,12 @@ pub use waker::{
 
 #[cfg(feature = "async")]
 pub use waker::TokioWaker;
+
+// CLI Bridge exports
+pub use cli_bridge::{
+    parsers, CliBridge, CliBridgeConfig, CommandOutput, OutputType, ProgressInfo, ProgressParser,
+    WrappedChild, WrappedCommand, WrappedWriter,
+};
 
 // Async channel exports
 #[cfg(feature = "async")]

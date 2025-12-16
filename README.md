@@ -27,6 +27,7 @@ A high-performance, cross-platform IPC (Inter-Process Communication) library for
 - 📡 **Event Stream** - Real-time publish-subscribe event system
 - 📋 **Task Manager** - Task lifecycle management with progress tracking
 - 🌐 **Socket Server** - Multi-client socket server (like Docker's socket)
+- 🔧 **CLI Bridge** - Integrate CLI tools with real-time progress and communication
 
 ## 📦 Installation
 
@@ -438,6 +439,76 @@ fn main() -> ipckit::Result<()> {
 }
 ```
 
+### CLI Bridge (CLI Tool Integration)
+
+Integrate any CLI tool with real-time progress tracking and bidirectional communication.
+
+**Python:**
+```python
+import ipckit
+
+# Method 1: Use CliBridge directly
+bridge = ipckit.CliBridge()
+bridge.register_task("Build Project", "build")
+
+for i in range(100):
+    if bridge.is_cancelled:
+        bridge.fail("Cancelled by user")
+        break
+    bridge.set_progress(i + 1, f"Step {i + 1}/100")
+
+bridge.complete({"success": True})
+
+# Method 2: Wrap existing command with progress parsing
+output = ipckit.wrap_command(
+    ["cargo", "build", "--release"],
+    task_name="Build Project",
+    task_type="build"
+)
+print(f"Exit code: {output.exit_code}")
+print(f"Duration: {output.duration_ms}ms")
+
+# Method 3: Parse progress from output
+info = ipckit.parse_progress("Downloading... 75%", "percentage")
+print(f"Progress: {info.percentage}%")
+```
+
+**Rust:**
+```rust
+use ipckit::{CliBridge, WrappedCommand, parsers};
+
+fn main() -> ipckit::Result<()> {
+    // Method 1: Direct bridge usage
+    let bridge = CliBridge::connect()?;
+    bridge.register_task("My Task", "build")?;
+    
+    for i in 0..100 {
+        if bridge.is_cancelled() {
+            bridge.fail("Cancelled");
+            return Ok(());
+        }
+        bridge.set_progress(i + 1, Some(&format!("Step {}/100", i + 1)));
+    }
+    bridge.complete(serde_json::json!({"success": true}));
+
+    // Method 2: Wrap existing command
+    let output = WrappedCommand::new("cargo")
+        .args(["build", "--release"])
+        .task("Build Project", "build")
+        .progress_parser(parsers::PercentageParser)
+        .run()?;
+    
+    println!("Exit code: {}", output.exit_code);
+    Ok(())
+}
+```
+
+**Key Features:**
+- Automatic stdout/stderr capture and forwarding
+- Built-in progress parsers (percentage, fraction, progress bar)
+- Task cancellation support
+- Minimal invasiveness - existing CLI needs minimal modifications
+
 ## 📖 IPC Methods Comparison
 
 | Method | Use Case | Performance | Complexity |
@@ -453,6 +524,7 @@ fn main() -> ipckit::Result<()> {
 | **Event Stream** | Publish-subscribe events | Fast | Low |
 | **Task Manager** | Task lifecycle | Fast | Medium |
 | **Socket Server** | Multi-client server | Fast | Medium |
+| **CLI Bridge** | CLI tool integration | Fast | Low |
 
 ## 🏗️ Architecture
 
@@ -478,6 +550,7 @@ fn main() -> ipckit::Result<()> {
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │                  High-Level Services                    ││
 │  │  (ThreadChannel, EventStream, TaskManager, SocketServer)││
+│  │  (CliBridge, WrappedCommand)                            ││
 │  └─────────────────────────────────────────────────────────┘│
 ├─────────────────────────────────────────────────────────────┤
 │              Platform Abstraction Layer                      │

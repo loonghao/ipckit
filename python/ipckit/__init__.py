@@ -12,6 +12,12 @@ Graceful shutdown support:
 - GracefulNamedPipe: Named pipe with graceful shutdown
 - GracefulIpcChannel: IPC channel with graceful shutdown
 
+CLI Bridge (for CLI tool integration):
+- CliBridge: Bridge for CLI tools to communicate with frontends
+- CliBridgeConfig: Configuration for CLI bridge
+- wrap_command(): Wrap a subprocess with CLI bridge integration
+- parse_progress(): Parse progress from output lines
+
 JSON utilities (faster than Python's json module, powered by Rust serde_json):
 - json_dumps(obj): Serialize Python object to JSON string
 - json_dumps_pretty(obj): Serialize with pretty formatting
@@ -31,35 +37,54 @@ Example:
 
     channel = IpcChannel.connect('my_channel')
     channel.send(b'Hello, IPC!')
-    
+
     # Using graceful shutdown
     from ipckit import GracefulIpcChannel
-    
+
     channel = GracefulIpcChannel.create('my_channel')
     channel.wait_for_client()
-    
+
     # ... use channel ...
-    
+
     # Graceful shutdown
     channel.shutdown()
     channel.drain()  # Wait for pending operations
-    
+
     # Or with timeout (in milliseconds)
     channel.shutdown_timeout(5000)
+
+    # CLI Bridge usage
+    from ipckit import CliBridge, wrap_command
+
+    # Method 1: Using CliBridge directly
+    bridge = CliBridge.connect()
+    bridge.register_task('My Task', 'custom')
+    bridge.set_progress(50, 'Half done')
+    bridge.complete({'success': True})
+
+    # Method 2: Wrapping a subprocess
+    output = wrap_command(['pip', 'install', 'requests'], task_name='Install')
+    print(f'Exit code: {output.exit_code}')
 """
 
 from .ipckit import (
     AnonymousPipe,
-    NamedPipe,
-    SharedMemory,
-    IpcChannel,
+    CliBridge,
+    CliBridgeConfig,
+    CommandOutput,
     FileChannel,
-    GracefulNamedPipe,
     GracefulIpcChannel,
+    GracefulNamedPipe,
+    IpcChannel,
+    NamedPipe,
+    ProgressInfo,
+    SharedMemory,
+    __version__,
     json_dumps,
     json_dumps_pretty,
     json_loads,
-    __version__,
+    parse_progress,
+    wrap_command,
 )
 
 __all__ = [
@@ -70,6 +95,12 @@ __all__ = [
     "FileChannel",
     "GracefulNamedPipe",
     "GracefulIpcChannel",
+    "CliBridge",
+    "CliBridgeConfig",
+    "ProgressInfo",
+    "CommandOutput",
+    "wrap_command",
+    "parse_progress",
     "json_dumps",
     "json_dumps_pretty",
     "json_loads",

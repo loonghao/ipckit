@@ -10,8 +10,10 @@
 //! - `channel`: IpcChannel and FileChannel bindings
 //! - `graceful`: GracefulNamedPipe and GracefulIpcChannel bindings
 //! - `socket`: LocalSocketListener and LocalSocketStream bindings
+//! - `cli_bridge`: CLI Bridge bindings for CLI tool integration
 
 mod channel;
+mod cli_bridge;
 mod graceful;
 mod json_utils;
 mod pipe;
@@ -20,6 +22,9 @@ mod socket;
 
 // Re-export all Python classes
 pub use channel::{PyFileChannel, PyIpcChannel};
+pub use cli_bridge::{
+    parse_progress, wrap_command, PyCliBridge, PyCliBridgeConfig, PyCommandOutput, PyProgressInfo,
+};
 pub use graceful::{PyGracefulIpcChannel, PyGracefulNamedPipe};
 pub use json_utils::{
     json_dumps, json_dumps_pretty, json_loads, json_value_to_py, py_to_json_value,
@@ -49,6 +54,14 @@ pub fn ipckit_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyGracefulNamedPipe>()?;
     m.add_class::<PyGracefulIpcChannel>()?;
 
+    // CLI Bridge classes (Issue #17: CLI Bridge)
+    m.add_class::<PyCliBridge>()?;
+    m.add_class::<PyCliBridgeConfig>()?;
+    m.add_class::<PyProgressInfo>()?;
+    m.add_class::<PyCommandOutput>()?;
+    m.add_function(wrap_pyfunction!(wrap_command, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_progress, m)?)?;
+
     // JSON utilities (Rust-native, faster than Python's json module)
     m.add_function(wrap_pyfunction!(json_dumps, m)?)?;
     m.add_function(wrap_pyfunction!(json_dumps_pretty, m)?)?;
@@ -75,6 +88,12 @@ Graceful shutdown support:
 - GracefulNamedPipe: Named pipe with graceful shutdown
 - GracefulIpcChannel: IPC channel with graceful shutdown
 
+CLI Bridge (for CLI tool integration):
+- CliBridge: Bridge for CLI tools to communicate with frontends
+- CliBridgeConfig: Configuration for CLI bridge
+- wrap_command(): Wrap a subprocess with CLI bridge integration
+- parse_progress(): Parse progress from output lines
+
 JSON utilities (faster than Python's json module):
 - json_dumps(obj): Serialize Python object to JSON string
 - json_dumps_pretty(obj): Serialize with pretty formatting
@@ -97,6 +116,16 @@ Example:
     # Using JSON messaging
     stream.send_json({'type': 'request', 'data': [1, 2, 3]})
     response = stream.recv_json()
+
+    # CLI Bridge usage
+    bridge = ipckit.CliBridge.connect()
+    bridge.register_task('My Task', 'custom')
+    bridge.set_progress(50, 'Half done')
+    bridge.complete({'success': True})
+
+    # Wrap a subprocess
+    output = ipckit.wrap_command(['pip', 'install', 'requests'], task_name='Install')
+    print(f'Exit code: {output.exit_code}')
 ",
     )?;
 
