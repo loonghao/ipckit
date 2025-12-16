@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.4](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.3...ipckit-v0.1.4) (2025-12-16)
+
+
+### Features
+
+* implement CLI Bridge for CLI tool integration (Issue [#17](https://github.com/loonghao/ipckit/issues/17)) ([e20376f](https://github.com/loonghao/ipckit/commit/e20376f4327d8829c08778042c291f4fedab8b0b))
+
+
+### Bug Fixes
+
+* add delay in test_multiple_bridges to ensure unique task IDs ([4e53508](https://github.com/loonghao/ipckit/commit/4e53508a3c5c1549b4ac5c11049cf93e788388c8))
+
 ## [0.1.3](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.2...ipckit-v0.1.3) (2025-12-14)
 
 
