@@ -433,12 +433,17 @@ class TestE2EScenarios:
 
     def test_multiple_bridges(self):
         """Test multiple bridges can coexist."""
+        import time
+
         from ipckit import CliBridge
 
         bridge1 = CliBridge()
-        bridge2 = CliBridge()
-
         task_id1 = bridge1.register_task("Task 1", "test")
+
+        # Small delay to ensure different timestamp
+        time.sleep(0.002)
+
+        bridge2 = CliBridge()
         task_id2 = bridge2.register_task("Task 2", "test")
 
         assert task_id1 != task_id2
