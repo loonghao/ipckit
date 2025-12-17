@@ -178,8 +178,14 @@ pub mod tokio_channel {
 
     impl<T: Send + 'static> AsyncThreadChannel<T> {
         /// Create an unbounded async channel.
+        ///
+        /// Note: Uses a large but safe buffer size (1 million) instead of usize::MAX
+        /// because tokio's semaphore has a maximum permit limit.
         pub fn unbounded() -> (AsyncThreadSender<T>, AsyncThreadReceiver<T>) {
-            let (tx, rx) = mpsc::channel(usize::MAX);
+            // tokio's mpsc uses a semaphore internally which has MAX_PERMITS limit
+            // Using a large but safe value instead of usize::MAX
+            const LARGE_BUFFER: usize = 1_000_000;
+            let (tx, rx) = mpsc::channel(LARGE_BUFFER);
             let shutdown = Arc::new(ShutdownState::new());
 
             (
