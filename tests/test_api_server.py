@@ -172,12 +172,42 @@ class TestApiClient:
         client = ApiClient("/tmp/test_socket")
         assert client is not None
 
+    def test_create_client_with_timeout(self):
+        """Test creating API client with timeout."""
+        from ipckit import ApiClient
+
+        client = ApiClient("/tmp/test_socket", timeout_ms=1000)
+        assert client is not None
+        assert client.get_timeout() == 1000
+
     def test_connect_default(self):
         """Test connecting to default socket."""
         from ipckit import ApiClient
 
         client = ApiClient.connect()
         assert client is not None
+        assert client.get_timeout() is None
+
+    def test_connect_timeout(self):
+        """Test connecting to default socket with timeout."""
+        from ipckit import ApiClient
+
+        client = ApiClient.connect_timeout(500)
+        assert client is not None
+        assert client.get_timeout() == 500
+
+    def test_set_timeout(self):
+        """Test setting timeout after creation."""
+        from ipckit import ApiClient
+
+        client = ApiClient("/tmp/test_socket")
+        assert client.get_timeout() is None
+
+        client.set_timeout(2000)
+        assert client.get_timeout() == 2000
+
+        client.set_timeout(None)
+        assert client.get_timeout() is None
 
     def test_repr(self):
         """Test string representation."""
@@ -186,6 +216,42 @@ class TestApiClient:
         client = ApiClient("/tmp/test")
         repr_str = repr(client)
         assert "ApiClient" in repr_str
+
+    def test_repr_with_timeout(self):
+        """Test string representation with timeout."""
+        from ipckit import ApiClient
+
+        client = ApiClient("/tmp/test", timeout_ms=1000)
+        repr_str = repr(client)
+        assert "ApiClient" in repr_str
+        assert "timeout" in repr_str
+
+
+class TestApiClientTimeout:
+    """Tests for ApiClient timeout behavior."""
+
+    def test_get_timeout_on_nonexistent_socket(self):
+        """Test that GET request times out on non-existent socket."""
+        from ipckit import ApiClient
+
+        # Use a socket path that doesn't exist
+        client = ApiClient("/tmp/nonexistent_socket_12345", timeout_ms=100)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            client.get("/v1/test")
+
+        # Should fail quickly due to timeout or connection error
+        error_msg = str(exc_info.value).lower()
+        assert "timeout" in error_msg or "not found" in error_msg or "connection" in error_msg
+
+    def test_post_timeout_on_nonexistent_socket(self):
+        """Test that POST request times out on non-existent socket."""
+        from ipckit import ApiClient
+
+        client = ApiClient("/tmp/nonexistent_socket_12345", timeout_ms=100)
+
+        with pytest.raises(RuntimeError):
+            client.post("/v1/test", {"data": "test"})
 
 
 class TestApiClientIntegration:
