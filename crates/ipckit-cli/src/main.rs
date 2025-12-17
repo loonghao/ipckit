@@ -16,6 +16,12 @@
 //!
 //! # Benchmark
 //! ipckit bench --type pipe --iterations 1000
+//!
+//! # Generate code
+//! ipckit generate client --type pipe --name my_pipe
+//!
+//! # Monitor channels
+//! ipckit monitor
 //! ```
 
 mod commands;
@@ -147,10 +153,95 @@ enum Commands {
         #[arg(short, long)]
         port: Option<u16>,
     },
+
+    /// Generate code templates
+    Generate {
+        /// What to generate
+        #[command(subcommand)]
+        target: GenerateCommand,
+    },
+
+    /// Monitor channel activity
+    Monitor {
+        /// Channel type to monitor (optional, monitors all if not specified)
+        #[arg(short = 't', long, value_enum)]
+        channel_type: Option<ChannelType>,
+
+        /// Channel name to monitor (optional)
+        #[arg(short, long)]
+        name: Option<String>,
+
+        /// Output format
+        #[arg(long, value_enum, default_value = "text")]
+        format: OutputFormat,
+
+        /// Refresh interval in milliseconds
+        #[arg(long, default_value = "1000")]
+        interval: u64,
+    },
+}
+
+#[derive(Subcommand, Clone)]
+enum GenerateCommand {
+    /// Generate client code
+    Client {
+        /// Channel type
+        #[arg(short = 't', long, value_enum)]
+        channel_type: ChannelType,
+
+        /// Channel name
+        #[arg(short, long)]
+        name: String,
+
+        /// Output file (prints to stdout if not specified)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
+    /// Generate server code
+    Server {
+        /// Channel type
+        #[arg(short = 't', long, value_enum)]
+        channel_type: ChannelType,
+
+        /// Channel name
+        #[arg(short, long)]
+        name: String,
+
+        /// Output file (prints to stdout if not specified)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
+    /// Generate Python bindings example
+    Python {
+        /// Channel type
+        #[arg(short = 't', long, value_enum)]
+        channel_type: ChannelType,
+
+        /// Channel name
+        #[arg(short, long)]
+        name: String,
+
+        /// Output file (prints to stdout if not specified)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
+    /// Generate IPC handler template
+    Handler {
+        /// Handler name
+        #[arg(short, long)]
+        name: String,
+
+        /// Output file (prints to stdout if not specified)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
 }
 
 #[derive(Clone, Copy, ValueEnum)]
-enum ChannelType {
+pub enum ChannelType {
     /// Named pipe
     Pipe,
     /// Shared memory
@@ -164,13 +255,21 @@ enum ChannelType {
 }
 
 #[derive(Clone, Copy, ValueEnum)]
-enum OutputFormat {
+pub enum OutputFormat {
     /// Plain text
     Text,
     /// JSON
     Json,
     /// Hex dump
     Hex,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum GenerateTarget {
+    Client,
+    Server,
+    Python,
+    Handler,
 }
 
 fn main() {
@@ -227,5 +326,55 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         Commands::Info { channel_type, name } => commands::info(channel_type, &name, cli.verbose),
 
         Commands::Serve { socket, port } => commands::serve(socket, port, cli.verbose),
+
+        Commands::Generate { target } => match target {
+            GenerateCommand::Client {
+                channel_type,
+                name,
+                output,
+            } => commands::generate(
+                GenerateTarget::Client,
+                channel_type,
+                &name,
+                output,
+                cli.verbose,
+            ),
+            GenerateCommand::Server {
+                channel_type,
+                name,
+                output,
+            } => commands::generate(
+                GenerateTarget::Server,
+                channel_type,
+                &name,
+                output,
+                cli.verbose,
+            ),
+            GenerateCommand::Python {
+                channel_type,
+                name,
+                output,
+            } => commands::generate(
+                GenerateTarget::Python,
+                channel_type,
+                &name,
+                output,
+                cli.verbose,
+            ),
+            GenerateCommand::Handler { name, output } => commands::generate(
+                GenerateTarget::Handler,
+                ChannelType::Pipe, // Default, not used for handler
+                &name,
+                output,
+                cli.verbose,
+            ),
+        },
+
+        Commands::Monitor {
+            channel_type,
+            name,
+            format,
+            interval,
+        } => commands::monitor(channel_type, name, format, interval, cli.verbose),
     }
 }

@@ -28,6 +28,9 @@ A high-performance, cross-platform IPC (Inter-Process Communication) library for
 - 📋 **Task Manager** - Task lifecycle management with progress tracking
 - 🌐 **Socket Server** - Multi-client socket server (like Docker's socket)
 - 🔧 **CLI Bridge** - Integrate CLI tools with real-time progress and communication
+- 📊 **Channel Metrics** - Built-in metrics tracking for send/receive operations
+- 🛠️ **CLI Tools** - Code generation and channel monitoring commands
+- 📝 **Declarative Macros** - Convenient macros for channel creation and command routing
 
 ## 📦 Installation
 
@@ -649,6 +652,114 @@ fn main() -> ipckit::Result<()> {
 - Task cancellation support
 - Minimal invasiveness - existing CLI needs minimal modifications
 
+### Channel Metrics (Performance Monitoring)
+
+Track send/receive operations with built-in metrics.
+
+**Rust:**
+```rust
+use ipckit::{ChannelMetrics, MeteredSender, MeteredReceiver, metered_pair, AggregatedMetrics};
+use std::sync::Arc;
+
+fn main() {
+    // Create metered sender/receiver pair
+    let (tx, rx) = metered_pair(crossbeam_channel::unbounded());
+    
+    // Send messages
+    tx.send("Hello".to_string()).unwrap();
+    tx.send("World".to_string()).unwrap();
+    
+    // Receive messages
+    let _ = rx.recv().unwrap();
+    
+    // Get metrics
+    let metrics = tx.metrics();
+    println!("Sent: {}, Received: {}", metrics.messages_sent(), metrics.messages_received());
+    
+    // Aggregate metrics from multiple channels
+    let mut aggregated = AggregatedMetrics::new();
+    aggregated.add_channel("channel1", metrics.clone());
+    
+    // Export as JSON or Prometheus format
+    println!("{}", aggregated.to_json());
+    println!("{}", aggregated.to_prometheus());
+}
+```
+
+### CLI Tools
+
+ipckit provides CLI tools for code generation and channel monitoring.
+
+**Code Generation:**
+```bash
+# Generate client code
+ipckit generate client --name MyClient --output ./src/client.rs
+
+# Generate server code
+ipckit generate server --name MyServer --output ./src/server.rs
+
+# Generate Python bindings
+ipckit generate python --name my_module --output ./bindings/
+
+# Generate message handler
+ipckit generate handler --name MessageHandler --output ./src/handler.rs
+```
+
+**Channel Monitoring:**
+```bash
+# Monitor channel with TUI interface
+ipckit monitor --channel my_channel
+
+# Monitor with JSON output
+ipckit monitor --channel my_channel --format json
+
+# Monitor with custom refresh interval
+ipckit monitor --channel my_channel --interval 500
+```
+
+### Declarative Macros
+
+Convenient macros for common IPC patterns.
+
+**Rust:**
+```rust
+use ipckit::{ipc_channel, ipc_commands, ipc_message, ipc_middleware};
+
+fn main() {
+    // Create a channel with a single macro
+    let (tx, rx) = ipc_channel!(String, "my_channel");
+    
+    // Define message types
+    ipc_message! {
+        struct UserRequest {
+            user_id: u64,
+            action: String,
+        }
+    }
+    
+    // Define command routing
+    ipc_commands! {
+        "ping" => handle_ping,
+        "echo" => handle_echo,
+        "status" => handle_status,
+    }
+    
+    // Chain middleware
+    ipc_middleware! {
+        logging_middleware,
+        auth_middleware,
+        => final_handler
+    }
+}
+
+fn handle_ping() -> String { "pong".to_string() }
+fn handle_echo() -> String { "echo".to_string() }
+fn handle_status() -> String { "ok".to_string() }
+fn logging_middleware<F: Fn() -> String>(next: F) -> String { next() }
+fn auth_middleware<F: Fn() -> String>(next: F) -> String { next() }
+fn final_handler() -> String { "done".to_string() }
+```
+
 ## 📖 IPC Methods Comparison
 
 | Method | Use Case | Performance | Complexity |
@@ -665,6 +776,9 @@ fn main() -> ipckit::Result<()> {
 | **Task Manager** | Task lifecycle | Fast | Medium |
 | **Socket Server** | Multi-client server | Fast | Medium |
 | **CLI Bridge** | CLI tool integration | Fast | Low |
+| **Channel Metrics** | Performance monitoring | Fast | Low |
+| **CLI Tools** | Code generation & monitoring | N/A | Low |
+| **Declarative Macros** | Boilerplate reduction | N/A | Low |
 
 ## 🏗️ Architecture
 
