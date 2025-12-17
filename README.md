@@ -341,6 +341,32 @@ fn main() {
 
 Real-time event system for task progress, logs, and notifications.
 
+**Python:**
+```python
+import ipckit
+
+# Create event bus
+bus = ipckit.EventBus()
+publisher = bus.publisher()
+
+# Subscribe to task events
+subscriber = bus.subscribe(ipckit.EventFilter().event_type("task.*"))
+
+# Publish events
+publisher.progress("task-123", 50, 100, "Half done")
+publisher.log("task-123", "info", "Processing...")
+
+# Receive events (non-blocking)
+while event := subscriber.try_recv():
+    print(f"[{event.event_type}] {event.data}")
+
+# Or with timeout
+try:
+    event = subscriber.recv_timeout(1000)  # 1 second
+except RuntimeError:
+    print("Timeout")
+```
+
 **Rust:**
 ```rust
 use ipckit::{EventBus, Event, EventFilter};
@@ -368,6 +394,35 @@ fn main() {
 ### Task Manager (Task Lifecycle)
 
 Manage long-running tasks with progress tracking and cancellation support.
+
+**Python:**
+```python
+import ipckit
+import time
+
+manager = ipckit.TaskManager()
+
+# Create a task
+handle = manager.create_task("Upload files", "upload")
+handle.start()
+
+# Simulate work
+for i in range(100):
+    if handle.is_cancelled:
+        handle.fail("Cancelled by user")
+        break
+    handle.set_progress(i + 1, f"Step {i + 1}/100")
+    time.sleep(0.01)
+else:
+    handle.complete({"uploaded": 100})
+
+# List active tasks
+active = manager.list_active()
+print(f"Active tasks: {len(active)}")
+
+# Cancel a task
+# manager.cancel(handle.id)
+```
 
 **Rust:**
 ```rust
@@ -435,6 +490,91 @@ fn main() -> ipckit::Result<()> {
     let result = client.request("ping", serde_json::json!({}))?;
     println!("Response: {:?}", result);
 
+    Ok(())
+}
+```
+
+### API Server (HTTP-style API over Local Socket)
+
+For Python server-side applications, we recommend integrating with popular async frameworks like [FastAPI](https://fastapi.tiangolo.com/) or [Robyn](https://robyn.tech/). These frameworks provide robust routing, middleware, and async support.
+
+**Python with FastAPI + Uvicorn (Unix Socket):**
+```python
+# server.py
+from fastapi import FastAPI
+import uvicorn
+
+app = FastAPI()
+
+@app.get("/v1/health")
+async def health():
+    return {"status": "ok"}
+
+@app.post("/v1/tasks")
+async def create_task(data: dict):
+    return {"id": "task-123", "name": data.get("name")}
+
+# Run on Unix socket
+if __name__ == "__main__":
+    uvicorn.run(app, uds="/tmp/my_api.sock")
+```
+
+**Python with Robyn (High Performance):**
+```python
+# server.py
+from robyn import Robyn
+
+app = Robyn(__file__)
+
+@app.get("/v1/health")
+async def health():
+    return {"status": "ok"}
+
+@app.post("/v1/tasks")
+async def create_task(request):
+    data = request.json()
+    return {"id": "task-123", "name": data.get("name")}
+
+# Robyn supports Unix sockets via configuration
+app.start(host="0.0.0.0", port=8080)
+```
+
+**Python Client (using ipckit):**
+```python
+import ipckit
+
+# Connect to the API server
+client = ipckit.ApiClient("/tmp/my_api.sock")
+
+# Make requests
+health = client.get("/v1/health")
+print(health)  # {"status": "ok"}
+
+task = client.post("/v1/tasks", {"name": "my-task"})
+print(task)  # {"id": "task-123", "name": "my-task"}
+```
+
+**Rust Server:**
+```rust
+use ipckit::{ApiServer, ApiServerConfig, Router, Response};
+
+fn main() -> ipckit::Result<()> {
+    let config = ApiServerConfig::new("/tmp/my_api.sock");
+    
+    let router = Router::new()
+        .get("/v1/health", |_req| {
+            Response::ok(serde_json::json!({"status": "ok"}))
+        })
+        .post("/v1/tasks", |req| {
+            let data = req.json::<serde_json::Value>()?;
+            Response::created(serde_json::json!({
+                "id": "task-123",
+                "name": data.get("name")
+            }))
+        });
+    
+    let server = ApiServer::new(config, router)?;
+    server.run()?;
     Ok(())
 }
 ```
