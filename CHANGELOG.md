@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.5](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.4...ipckit-v0.1.5) (2025-12-17)
+
+
+### Features
+
+* add EventStream and TaskManager Python bindings, update docs with FastAPI/Robyn integration ([c0c6584](https://github.com/loonghao/ipckit/commit/c0c65842f49407e3adf45b1a28100d1a07564f85))
+* add Python bindings for ChannelMetrics and API Server ([0ac98e9](https://github.com/loonghao/ipckit/commit/0ac98e91575928c1d553da01ba2724efb6434845))
+* add timeout support for ApiClient and SocketClient ([6d654b7](https://github.com/loonghao/ipckit/commit/6d654b7b4bd6db7e0189d0a7964e8670c10e4361))
+
+
+### Bug Fixes
+
+* use safe buffer size for unbounded async channel ([2a82f11](https://github.com/loonghao/ipckit/commit/2a82f111ef61018d1e2f52b35a469a3166e08b7d))
+
 ## [0.1.4](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.3...ipckit-v0.1.4) (2025-12-16)
 
 
