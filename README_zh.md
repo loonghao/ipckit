@@ -238,6 +238,28 @@ channel.drain()  # 等待所有待处理操作完成
 channel.shutdown_timeout(5000)  # 5 秒超时
 ```
 
+**Rust:**
+```rust
+use ipckit::{GracefulIpcChannel, GracefulChannel};
+use std::time::Duration;
+
+fn main() -> ipckit::Result<()> {
+    let mut channel = GracefulIpcChannel::<Vec<u8>>::create("my_channel")?;
+    channel.wait_for_client()?;
+    
+    // ... 使用通道 ...
+    
+    // 优雅关闭
+    channel.shutdown();
+    channel.drain()?;
+    
+    // 或者带超时
+    channel.shutdown_timeout(Duration::from_secs(5))?;
+    
+    Ok(())
+}
+```
+
 **主要优势:**
 - 防止 `EventLoopClosed` 等类似错误
 - 线程安全的关闭信号
@@ -293,9 +315,34 @@ print(result)
 - 内置带长度前缀的 JSON 序列化
 - 简单的客户端-服务端模型
 
+### 线程通道（进程内通信）
+
+用于同一进程内线程间通信的高性能通道。
+
+**Rust:**
+```rust
+use ipckit::ThreadChannel;
+use std::thread;
+
+fn main() {
+    // 创建无界通道
+    let (tx, rx) = ThreadChannel::<String>::unbounded();
+
+    // 启动生产者线程
+    let tx_clone = tx.clone();
+    thread::spawn(move || {
+        tx_clone.send("来自线程的消息！".to_string()).unwrap();
+    });
+
+    // 在主线程接收
+    let msg = rx.recv().unwrap();
+    println!("收到: {}", msg);
+}
+```
+
 ### 事件流（发布-订阅）
 
-实时事件系统，用于任务进度、日志和通知。
+用于任务进度、日志和通知的实时事件系统。
 
 **Python:**
 ```python
@@ -409,75 +456,46 @@ fn main() {
 }
 ```
 
-### CLI 桥接（CLI 工具集成）
+### Socket 服务器（多客户端服务器）
 
-将任何 CLI 工具与实时进度跟踪和双向通信集成。
-
-**Python:**
-```python
-import ipckit
-
-# 方法 1：直接使用 CliBridge
-bridge = ipckit.CliBridge()
-bridge.register_task("构建项目", "build")
-
-for i in range(100):
-    if bridge.is_cancelled:
-        bridge.fail("用户取消")
-        break
-    bridge.set_progress(i + 1, f"步骤 {i + 1}/100")
-
-bridge.complete({"success": True})
-
-# 方法 2：包装现有命令并解析进度
-output = ipckit.wrap_command(
-    ["cargo", "build", "--release"],
-    task_name="构建项目",
-    task_type="build"
-)
-print(f"退出码: {output.exit_code}")
-print(f"耗时: {output.duration_ms}ms")
-
-# 方法 3：从输出解析进度
-info = ipckit.parse_progress("下载中... 75%", "percentage")
-print(f"进度: {info.percentage}%")
-```
+类似 Docker 的 socket 服务器，用于处理多个客户端连接。
 
 **Rust:**
 ```rust
-use ipckit::{CliBridge, WrappedCommand, parsers};
+use ipckit::{SocketServer, SocketServerConfig, Message, FnHandler};
 
 fn main() -> ipckit::Result<()> {
-    // 方法 1：直接使用桥接
-    let bridge = CliBridge::connect()?;
-    bridge.register_task("我的任务", "build")?;
-    
-    for i in 0..100 {
-        if bridge.is_cancelled() {
-            bridge.fail("已取消");
-            return Ok(());
-        }
-        bridge.set_progress(i + 1, Some(&format!("步骤 {}/100", i + 1)));
-    }
-    bridge.complete(serde_json::json!({"success": true}));
+    let server = SocketServer::new(SocketServerConfig::with_path("my_server"))?;
 
-    // 方法 2：包装现有命令
-    let output = WrappedCommand::new("cargo")
-        .args(["build", "--release"])
-        .task("构建项目", "build")
-        .progress_parser(parsers::PercentageParser)
-        .run()?;
-    
-    println!("退出码: {}", output.exit_code);
+    // 使用简单函数处理连接
+    let handler = FnHandler::new(|conn, msg| {
+        if msg.method() == Some("ping") {
+            Ok(Some(Message::response(serde_json::json!({"pong": true}))))
+        } else {
+            Ok(None)
+        }
+    });
+
+    // 运行服务器（阻塞）
+    server.run(handler)?;
     Ok(())
 }
 ```
 
-**主要功能:**
-- 自动捕获和转发 stdout/stderr
-- 内置进度解析器（百分比、分数、进度条）
-- 任务取消支持
-- 最小侵入性 - 现有 CLI 只需最少修改
+**客户端:**
+```rust
+use ipckit::SocketClient;
+
+fn main() -> ipckit::Result<()> {
+    let mut client = SocketClient::connect("my_server")?;
+
+    // 发送请求并获取响应
+    let result = client.request("ping", serde_json::json!({}))?;
+    println!("响应: {:?}", result);
+
+    Ok(())
+}
+```
 
 ### API 服务器（基于本地套接字的 HTTP 风格 API）
 
@@ -563,6 +581,76 @@ fn main() -> ipckit::Result<()> {
     Ok(())
 }
 ```
+
+### CLI 桥接（CLI 工具集成）
+
+将任何 CLI 工具与实时进度跟踪和双向通信集成。
+
+**Python:**
+```python
+import ipckit
+
+# 方法 1：直接使用 CliBridge
+bridge = ipckit.CliBridge()
+bridge.register_task("构建项目", "build")
+
+for i in range(100):
+    if bridge.is_cancelled:
+        bridge.fail("用户取消")
+        break
+    bridge.set_progress(i + 1, f"步骤 {i + 1}/100")
+
+bridge.complete({"success": True})
+
+# 方法 2：包装现有命令并解析进度
+output = ipckit.wrap_command(
+    ["cargo", "build", "--release"],
+    task_name="构建项目",
+    task_type="build"
+)
+print(f"退出码: {output.exit_code}")
+print(f"耗时: {output.duration_ms}ms")
+
+# 方法 3：从输出解析进度
+info = ipckit.parse_progress("下载中... 75%", "percentage")
+print(f"进度: {info.percentage}%")
+```
+
+**Rust:**
+```rust
+use ipckit::{CliBridge, WrappedCommand, parsers};
+
+fn main() -> ipckit::Result<()> {
+    // 方法 1：直接使用桥接
+    let bridge = CliBridge::connect()?;
+    bridge.register_task("我的任务", "build")?;
+    
+    for i in 0..100 {
+        if bridge.is_cancelled() {
+            bridge.fail("已取消");
+            return Ok(());
+        }
+        bridge.set_progress(i + 1, Some(&format!("步骤 {}/100", i + 1)));
+    }
+    bridge.complete(serde_json::json!({"success": true}));
+
+    // 方法 2：包装现有命令
+    let output = WrappedCommand::new("cargo")
+        .args(["build", "--release"])
+        .task("构建项目", "build")
+        .progress_parser(parsers::PercentageParser)
+        .run()?;
+    
+    println!("退出码: {}", output.exit_code);
+    Ok(())
+}
+```
+
+**主要功能:**
+- 自动捕获和转发 stdout/stderr
+- 内置进度解析器（百分比、分数、进度条）
+- 任务取消支持
+- 最小侵入性 - 现有 CLI 只需最少修改
 
 ### 通道指标（性能监控）
 
