@@ -320,11 +320,18 @@ pub struct PyApiClient {
 #[pymethods]
 impl PyApiClient {
     /// Create a new API client.
+    ///
+    /// Args:
+    ///     socket_path: Path to the socket file
+    ///     timeout_ms: Optional connection timeout in milliseconds
     #[new]
-    fn new(socket_path: &str) -> Self {
-        Self {
-            inner: ApiClient::new(socket_path),
-        }
+    #[pyo3(signature = (socket_path, timeout_ms=None))]
+    fn new(socket_path: &str, timeout_ms: Option<u64>) -> Self {
+        let inner = match timeout_ms {
+            Some(ms) => ApiClient::with_timeout(socket_path, std::time::Duration::from_millis(ms)),
+            None => ApiClient::new(socket_path),
+        };
+        Self { inner }
     }
 
     /// Connect to the default socket.
@@ -333,6 +340,34 @@ impl PyApiClient {
         Self {
             inner: ApiClient::connect(),
         }
+    }
+
+    /// Connect to the default socket with a timeout.
+    ///
+    /// Args:
+    ///     timeout_ms: Connection timeout in milliseconds
+    #[staticmethod]
+    fn connect_timeout(timeout_ms: u64) -> Self {
+        Self {
+            inner: ApiClient::connect_timeout(std::time::Duration::from_millis(timeout_ms)),
+        }
+    }
+
+    /// Set the connection timeout.
+    ///
+    /// Args:
+    ///     timeout_ms: Timeout in milliseconds, or None to disable timeout
+    fn set_timeout(&mut self, timeout_ms: Option<u64>) {
+        self.inner
+            .set_timeout(timeout_ms.map(std::time::Duration::from_millis));
+    }
+
+    /// Get the connection timeout in milliseconds.
+    ///
+    /// Returns:
+    ///     Optional timeout in milliseconds, or None if no timeout is set
+    fn get_timeout(&self) -> Option<u64> {
+        self.inner.get_timeout().map(|d| d.as_millis() as u64)
     }
 
     /// Make a GET request.
@@ -394,6 +429,9 @@ impl PyApiClient {
     }
 
     fn __repr__(&self) -> String {
-        "ApiClient()".to_string()
+        match self.inner.get_timeout() {
+            Some(t) => format!("ApiClient(timeout={}ms)", t.as_millis()),
+            None => "ApiClient()".to_string(),
+        }
     }
 }

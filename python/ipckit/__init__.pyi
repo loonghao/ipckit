@@ -1438,7 +1438,14 @@ class ApiClient:
     """Client for making HTTP requests to the API server.
 
     Example:
+        # Connect without timeout (may block indefinitely)
         client = ApiClient.connect()
+
+        # Connect with timeout (recommended for testing)
+        client = ApiClient.connect_timeout(1000)  # 1 second timeout
+
+        # Create with custom socket path and timeout
+        client = ApiClient("/tmp/my.sock", timeout_ms=500)
 
         # GET request
         tasks = client.get('/v1/tasks')
@@ -1453,17 +1460,56 @@ class ApiClient:
         client.delete('/v1/tasks/123')
     """
 
-    def __init__(self, socket_path: str) -> None:
+    def __init__(self, socket_path: str, timeout_ms: int | None = None) -> None:
         """Create a new API client.
 
         Args:
             socket_path: Path to the socket
+            timeout_ms: Optional connection timeout in milliseconds.
+                        If None, connection may block indefinitely.
         """
         ...
 
     @staticmethod
     def connect() -> ApiClient:
-        """Connect to the default socket."""
+        """Connect to the default socket without timeout.
+
+        Warning: This may block indefinitely if the server is not running.
+        For testing, use connect_timeout() instead.
+        """
+        ...
+
+    @staticmethod
+    def connect_timeout(timeout_ms: int) -> ApiClient:
+        """Connect to the default socket with a timeout.
+
+        This is recommended for unit tests to avoid hanging.
+
+        Args:
+            timeout_ms: Connection timeout in milliseconds
+
+        Returns:
+            A new ApiClient instance
+
+        Raises:
+            RuntimeError: If connection times out or fails
+        """
+        ...
+
+    def set_timeout(self, timeout_ms: int | None) -> None:
+        """Set the connection timeout for future requests.
+
+        Args:
+            timeout_ms: Timeout in milliseconds, or None to disable timeout
+        """
+        ...
+
+    def get_timeout(self) -> int | None:
+        """Get the current connection timeout in milliseconds.
+
+        Returns:
+            Timeout in milliseconds, or None if no timeout is set
+        """
         ...
 
     def get(self, path: str) -> Any:
@@ -1474,6 +1520,9 @@ class ApiClient:
 
         Returns:
             Response body as Python object
+
+        Raises:
+            RuntimeError: If connection fails or times out
         """
         ...
 
@@ -1486,6 +1535,9 @@ class ApiClient:
 
         Returns:
             Response body as Python object
+
+        Raises:
+            RuntimeError: If connection fails or times out
         """
         ...
 
@@ -1498,6 +1550,9 @@ class ApiClient:
 
         Returns:
             Response body as Python object
+
+        Raises:
+            RuntimeError: If connection fails or times out
         """
         ...
 
@@ -1509,5 +1564,8 @@ class ApiClient:
 
         Returns:
             Response body as Python object
+
+        Raises:
+            RuntimeError: If connection fails or times out
         """
         ...

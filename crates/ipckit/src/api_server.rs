@@ -842,6 +842,8 @@ impl ApiServer {
 /// API Client for making requests to the API server.
 pub struct ApiClient {
     socket_path: String,
+    /// Connection timeout (None = no timeout, blocks indefinitely)
+    timeout: Option<std::time::Duration>,
 }
 
 impl ApiClient {
@@ -849,12 +851,36 @@ impl ApiClient {
     pub fn new(socket_path: &str) -> Self {
         Self {
             socket_path: socket_path.to_string(),
+            timeout: None,
+        }
+    }
+
+    /// Create a new API client with a connection timeout.
+    pub fn with_timeout(socket_path: &str, timeout: std::time::Duration) -> Self {
+        Self {
+            socket_path: socket_path.to_string(),
+            timeout: Some(timeout),
         }
     }
 
     /// Connect to the default socket.
     pub fn connect() -> Self {
         Self::new(&SocketServerConfig::default().path)
+    }
+
+    /// Connect to the default socket with a timeout.
+    pub fn connect_timeout(timeout: std::time::Duration) -> Self {
+        Self::with_timeout(&SocketServerConfig::default().path, timeout)
+    }
+
+    /// Set the connection timeout.
+    pub fn set_timeout(&mut self, timeout: Option<std::time::Duration>) {
+        self.timeout = timeout;
+    }
+
+    /// Get the connection timeout.
+    pub fn get_timeout(&self) -> Option<std::time::Duration> {
+        self.timeout
     }
 
     /// Make a GET request.
@@ -884,7 +910,11 @@ impl ApiClient {
         path: &str,
         body: Option<JsonValue>,
     ) -> crate::Result<JsonValue> {
-        let mut client = SocketClient::connect(&self.socket_path)?;
+        // Connect with or without timeout
+        let mut client = match self.timeout {
+            Some(timeout) => SocketClient::connect_timeout(&self.socket_path, timeout)?,
+            None => SocketClient::connect(&self.socket_path)?,
+        };
 
         // Build HTTP request
         let body_bytes = body
