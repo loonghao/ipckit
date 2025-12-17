@@ -290,6 +290,122 @@ print(result)
 - 内置带长度前缀的 JSON 序列化
 - 简单的客户端-服务端模型
 
+### 事件流（发布-订阅）
+
+实时事件系统，用于任务进度、日志和通知。
+
+**Python:**
+```python
+import ipckit
+
+# 创建事件总线
+bus = ipckit.EventBus()
+publisher = bus.publisher()
+
+# 订阅任务事件
+subscriber = bus.subscribe(ipckit.EventFilter().event_type("task.*"))
+
+# 发布事件
+publisher.progress("task-123", 50, 100, "完成一半")
+publisher.log("task-123", "info", "处理中...")
+
+# 接收事件（非阻塞）
+while event := subscriber.try_recv():
+    print(f"[{event.event_type}] {event.data}")
+
+# 或者带超时
+try:
+    event = subscriber.recv_timeout(1000)  # 1 秒
+except RuntimeError:
+    print("超时")
+```
+
+**Rust:**
+```rust
+use ipckit::{EventBus, Event, EventFilter};
+
+fn main() {
+    let bus = EventBus::new(Default::default());
+    let publisher = bus.publisher();
+
+    // 订阅任务事件
+    let subscriber = bus.subscribe(
+        EventFilter::new().event_type("task.*")
+    );
+
+    // 发布事件
+    publisher.progress("task-123", 50, 100, "完成一半");
+    publisher.log("task-123", "info", "处理中...");
+
+    // 接收事件
+    while let Some(event) = subscriber.try_recv() {
+        println!("[{}] {:?}", event.event_type, event.data);
+    }
+}
+```
+
+### 任务管理器（任务生命周期）
+
+管理长时间运行的任务，支持进度跟踪和取消。
+
+**Python:**
+```python
+import ipckit
+import time
+
+manager = ipckit.TaskManager()
+
+# 创建任务
+handle = manager.create_task("上传文件", "upload")
+handle.start()
+
+# 模拟工作
+for i in range(100):
+    if handle.is_cancelled:
+        handle.fail("用户取消")
+        break
+    handle.set_progress(i + 1, f"步骤 {i + 1}/100")
+    time.sleep(0.01)
+else:
+    handle.complete({"uploaded": 100})
+
+# 列出活动任务
+active = manager.list_active()
+print(f"活动任务: {len(active)}")
+
+# 取消任务
+# manager.cancel(handle.id)
+```
+
+**Rust:**
+```rust
+use ipckit::{TaskManager, TaskBuilder, TaskFilter};
+use std::time::Duration;
+
+fn main() {
+    let manager = TaskManager::new(Default::default());
+
+    // 启动任务
+    let handle = manager.spawn("上传文件", "upload", |task| {
+        for i in 0..100 {
+            if task.is_cancelled() {
+                return;
+            }
+            task.set_progress(i + 1, Some(&format!("步骤 {}/100", i + 1)));
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        task.complete(serde_json::json!({"uploaded": 100}));
+    });
+
+    // 列出活动任务
+    let active = manager.list(&TaskFilter::new().active());
+    println!("活动任务: {}", active.len());
+
+    // 如需取消
+    // manager.cancel(handle.id()).unwrap();
+}
+```
+
 ### CLI 桥接（CLI 工具集成）
 
 将任何 CLI 工具与实时进度跟踪和双向通信集成。
@@ -359,6 +475,91 @@ fn main() -> ipckit::Result<()> {
 - 内置进度解析器（百分比、分数、进度条）
 - 任务取消支持
 - 最小侵入性 - 现有 CLI 只需最少修改
+
+### API 服务器（基于本地套接字的 HTTP 风格 API）
+
+对于 Python 服务端应用，我们推荐集成流行的异步框架如 [FastAPI](https://fastapi.tiangolo.com/) 或 [Robyn](https://robyn.tech/)。这些框架提供了健壮的路由、中间件和异步支持。
+
+**Python 使用 FastAPI + Uvicorn（Unix Socket）：**
+```python
+# server.py
+from fastapi import FastAPI
+import uvicorn
+
+app = FastAPI()
+
+@app.get("/v1/health")
+async def health():
+    return {"status": "ok"}
+
+@app.post("/v1/tasks")
+async def create_task(data: dict):
+    return {"id": "task-123", "name": data.get("name")}
+
+# 在 Unix socket 上运行
+if __name__ == "__main__":
+    uvicorn.run(app, uds="/tmp/my_api.sock")
+```
+
+**Python 使用 Robyn（高性能）：**
+```python
+# server.py
+from robyn import Robyn
+
+app = Robyn(__file__)
+
+@app.get("/v1/health")
+async def health():
+    return {"status": "ok"}
+
+@app.post("/v1/tasks")
+async def create_task(request):
+    data = request.json()
+    return {"id": "task-123", "name": data.get("name")}
+
+# Robyn 通过配置支持 Unix sockets
+app.start(host="0.0.0.0", port=8080)
+```
+
+**Python 客户端（使用 ipckit）：**
+```python
+import ipckit
+
+# 连接到 API 服务器
+client = ipckit.ApiClient("/tmp/my_api.sock")
+
+# 发送请求
+health = client.get("/v1/health")
+print(health)  # {"status": "ok"}
+
+task = client.post("/v1/tasks", {"name": "my-task"})
+print(task)  # {"id": "task-123", "name": "my-task"}
+```
+
+**Rust 服务端：**
+```rust
+use ipckit::{ApiServer, ApiServerConfig, Router, Response};
+
+fn main() -> ipckit::Result<()> {
+    let config = ApiServerConfig::new("/tmp/my_api.sock");
+    
+    let router = Router::new()
+        .get("/v1/health", |_req| {
+            Response::ok(serde_json::json!({"status": "ok"}))
+        })
+        .post("/v1/tasks", |req| {
+            let data = req.json::<serde_json::Value>()?;
+            Response::created(serde_json::json!({
+                "id": "task-123",
+                "name": data.get("name")
+            }))
+        });
+    
+    let server = ApiServer::new(config, router)?;
+    server.run()?;
+    Ok(())
+}
+```
 
 ## 📖 IPC 方式对比
 

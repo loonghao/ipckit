@@ -1569,3 +1569,1001 @@ class ApiClient:
             RuntimeError: If connection fails or times out
         """
         ...
+
+# Local Socket classes
+
+class LocalSocketListener:
+    """Server-side local socket (Unix Domain Socket / Named Pipe).
+
+    Cross-platform local socket server:
+    - On Unix: Uses Unix Domain Sockets
+    - On Windows: Uses Named Pipes
+
+    Example:
+        listener = LocalSocketListener.bind("my_socket")
+        stream = listener.accept()
+        data = stream.read(1024)
+        stream.write(b"Hello!")
+    """
+
+    def __init__(self, name: str) -> None:
+        """Create a new local socket listener.
+
+        Args:
+            name: Socket name. On Unix, creates /tmp/name.sock.
+                  On Windows, creates \\\\.\\pipe\\name.
+        """
+        ...
+
+    @staticmethod
+    def bind(name: str) -> LocalSocketListener:
+        """Bind to a local socket.
+
+        Args:
+            name: Socket name
+
+        Returns:
+            A new LocalSocketListener instance
+        """
+        ...
+
+    def accept(self) -> LocalSocketStream:
+        """Accept a new incoming connection.
+
+        Blocks until a client connects.
+
+        Returns:
+            A LocalSocketStream for bidirectional communication
+        """
+        ...
+
+    @property
+    def name(self) -> str:
+        """Get the socket name."""
+        ...
+
+class LocalSocketStream:
+    """Bidirectional local socket connection.
+
+    Can be created by:
+    - Calling LocalSocketListener.accept() on server side
+    - Calling LocalSocketStream.connect() on client side
+
+    Example:
+        # Client
+        stream = LocalSocketStream.connect("my_socket")
+        stream.write(b"Hello!")
+        response = stream.read(1024)
+
+        # JSON messaging
+        stream.send_json({"action": "getData"})
+        result = stream.recv_json()
+    """
+
+    @staticmethod
+    def connect(name: str) -> LocalSocketStream:
+        """Connect to a local socket server.
+
+        Args:
+            name: Socket name to connect to
+
+        Returns:
+            A connected LocalSocketStream
+        """
+        ...
+
+    @property
+    def name(self) -> str:
+        """Get the socket name."""
+        ...
+
+    def read(self, size: int) -> bytes:
+        """Read data from the socket.
+
+        Args:
+            size: Maximum number of bytes to read
+
+        Returns:
+            Data read from the socket
+        """
+        ...
+
+    def write(self, data: bytes) -> int:
+        """Write data to the socket.
+
+        Args:
+            data: Data to write
+
+        Returns:
+            Number of bytes written
+        """
+        ...
+
+    def read_exact(self, size: int) -> bytes:
+        """Read exact number of bytes.
+
+        Args:
+            size: Exact number of bytes to read
+
+        Returns:
+            Data read from the socket
+        """
+        ...
+
+    def write_all(self, data: bytes) -> None:
+        """Write all data.
+
+        Args:
+            data: Data to write (all bytes will be written)
+        """
+        ...
+
+    def flush(self) -> None:
+        """Flush the socket."""
+        ...
+
+    def send_json(self, obj: Any) -> None:
+        """Send a JSON-serializable object.
+
+        Args:
+            obj: Object to send (will be serialized to JSON)
+        """
+        ...
+
+    def recv_json(self) -> Any:
+        """Receive a JSON object.
+
+        Returns:
+            Deserialized Python object
+        """
+        ...
+
+# Event Stream classes (Publish-Subscribe)
+
+class Event:
+    """Event object for publish-subscribe system.
+
+    Example:
+        event = Event("task.progress", {"current": 50, "total": 100})
+        event = Event.progress("task-123", 50, 100, "Half done")
+        event = Event.log("task-123", "info", "Processing...")
+    """
+
+    def __init__(self, event_type: str, data: Any | None = None) -> None:
+        """Create a new event.
+
+        Args:
+            event_type: Event type string (e.g., "task.progress")
+            data: Event data (will be serialized to JSON)
+        """
+        ...
+
+    @staticmethod
+    def with_resource(event_type: str, resource_id: str, data: Any | None = None) -> Event:
+        """Create an event with a resource ID.
+
+        Args:
+            event_type: Event type string
+            resource_id: Resource ID (e.g., task ID)
+            data: Event data
+        """
+        ...
+
+    @staticmethod
+    def progress(resource_id: str, current: int, total: int, message: str) -> Event:
+        """Create a progress event."""
+        ...
+
+    @staticmethod
+    def log(resource_id: str, level: str, message: str) -> Event:
+        """Create a log event."""
+        ...
+
+    @staticmethod
+    def stdout(resource_id: str, line: str) -> Event:
+        """Create a stdout log event."""
+        ...
+
+    @staticmethod
+    def stderr(resource_id: str, line: str) -> Event:
+        """Create a stderr log event."""
+        ...
+
+    @property
+    def id(self) -> int:
+        """Get the event ID."""
+        ...
+
+    @property
+    def timestamp(self) -> float:
+        """Get the event timestamp as Unix timestamp (seconds)."""
+        ...
+
+    @property
+    def event_type(self) -> str:
+        """Get the event type."""
+        ...
+
+    @property
+    def resource_id(self) -> str | None:
+        """Get the resource ID."""
+        ...
+
+    @property
+    def data(self) -> Any:
+        """Get the event data."""
+        ...
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        ...
+
+class EventFilter:
+    """Filter for subscribing to specific events.
+
+    Example:
+        # Match all task events
+        filter = EventFilter().event_type("task.*")
+
+        # Match specific resource
+        filter = EventFilter().resource("task-123")
+
+        # Combine filters
+        filter = EventFilter().event_type("task.*").resource("task-123")
+    """
+
+    def __init__(self) -> None:
+        """Create a new empty filter that matches all events."""
+        ...
+
+    def event_type(self, pattern: str) -> EventFilter:
+        """Add an event type pattern.
+
+        Supports wildcards like "task.*" to match all task events.
+
+        Args:
+            pattern: Event type pattern
+
+        Returns:
+            Self for chaining
+        """
+        ...
+
+    def resource(self, id: str) -> EventFilter:
+        """Add a resource ID filter.
+
+        Args:
+            id: Resource ID to match
+
+        Returns:
+            Self for chaining
+        """
+        ...
+
+    def since(self, timestamp: float) -> EventFilter:
+        """Set start time filter.
+
+        Args:
+            timestamp: Unix timestamp in seconds
+
+        Returns:
+            Self for chaining
+        """
+        ...
+
+    def until(self, timestamp: float) -> EventFilter:
+        """Set end time filter.
+
+        Args:
+            timestamp: Unix timestamp in seconds
+
+        Returns:
+            Self for chaining
+        """
+        ...
+
+    def matches(self, event: Event) -> bool:
+        """Check if an event matches this filter."""
+        ...
+
+class EventBusConfig:
+    """Configuration for EventBus.
+
+    Attributes:
+        history_size: Number of events to keep in history
+        subscriber_buffer: Buffer size for each subscriber
+    """
+
+    def __init__(
+        self,
+        history_size: int = 1000,
+        subscriber_buffer: int = 256,
+        slow_consumer: str = "drop_oldest",
+    ) -> None:
+        """Create a new configuration.
+
+        Args:
+            history_size: Number of events to keep in history
+            subscriber_buffer: Buffer size for each subscriber
+            slow_consumer: Policy for slow consumers:
+                - "drop_oldest": Drop oldest events
+                - "drop_newest": Drop newest events
+                - "block": Block until space available
+        """
+        ...
+
+    @property
+    def history_size(self) -> int:
+        """Get the history size."""
+        ...
+
+    @property
+    def subscriber_buffer(self) -> int:
+        """Get the subscriber buffer size."""
+        ...
+
+class EventPublisher:
+    """Publisher for sending events to the bus.
+
+    Example:
+        bus = EventBus()
+        publisher = bus.publisher()
+        publisher.progress("task-123", 50, 100, "Half done")
+        publisher.log("task-123", "info", "Processing...")
+    """
+
+    def publish(self, event: Event) -> None:
+        """Publish an event to the bus."""
+        ...
+
+    def progress(self, resource_id: str, current: int, total: int, message: str) -> None:
+        """Publish a progress event."""
+        ...
+
+    def log(self, resource_id: str, level: str, message: str) -> None:
+        """Publish a log event."""
+        ...
+
+    def stdout(self, resource_id: str, line: str) -> None:
+        """Publish a stdout log event."""
+        ...
+
+    def stderr(self, resource_id: str, line: str) -> None:
+        """Publish a stderr log event."""
+        ...
+
+    def task_started(self, task_id: str, data: Any | None = None) -> None:
+        """Publish a task started event."""
+        ...
+
+    def task_completed(self, task_id: str, result: Any | None = None) -> None:
+        """Publish a task completed event."""
+        ...
+
+    def task_failed(self, task_id: str, error: str) -> None:
+        """Publish a task failed event."""
+        ...
+
+    def task_cancelled(self, task_id: str) -> None:
+        """Publish a task cancelled event."""
+        ...
+
+class EventSubscriber:
+    """Subscriber for receiving events from the bus.
+
+    Example:
+        bus = EventBus()
+        subscriber = bus.subscribe(EventFilter().event_type("task.*"))
+
+        # Blocking receive
+        event = subscriber.recv()
+
+        # Non-blocking receive
+        event = subscriber.try_recv()
+
+        # With timeout
+        event = subscriber.recv_timeout(1000)  # 1 second
+    """
+
+    def recv(self) -> Event | None:
+        """Receive the next event (blocking).
+
+        Returns None if the bus is closed.
+        """
+        ...
+
+    def try_recv(self) -> Event | None:
+        """Try to receive an event without blocking.
+
+        Returns None if no event is available.
+        """
+        ...
+
+    def recv_timeout(self, timeout_ms: int) -> Event:
+        """Receive an event with a timeout.
+
+        Args:
+            timeout_ms: Timeout in milliseconds
+
+        Returns:
+            The received event
+
+        Raises:
+            RuntimeError: On timeout
+        """
+        ...
+
+    def drain(self) -> list[Event]:
+        """Get all currently available events without blocking."""
+        ...
+
+class EventBus:
+    """Central event bus for publish-subscribe.
+
+    Example:
+        bus = EventBus()
+
+        # Create publisher
+        publisher = bus.publisher()
+
+        # Subscribe to events
+        subscriber = bus.subscribe(EventFilter().event_type("task.*"))
+
+        # Publish events
+        publisher.progress("task-123", 50, 100, "Half done")
+
+        # Receive events
+        event = subscriber.try_recv()
+
+        # Get history
+        history = bus.history(EventFilter().resource("task-123"))
+    """
+
+    def __init__(self, config: EventBusConfig | None = None) -> None:
+        """Create a new event bus.
+
+        Args:
+            config: Optional configuration
+        """
+        ...
+
+    def publisher(self) -> EventPublisher:
+        """Create a new publisher for this bus."""
+        ...
+
+    def subscribe(self, filter: EventFilter | None = None) -> EventSubscriber:
+        """Subscribe to events matching the filter.
+
+        Args:
+            filter: Event filter (matches all if None)
+
+        Returns:
+            A new subscriber
+        """
+        ...
+
+    def history(self, filter: EventFilter | None = None) -> list[Event]:
+        """Get historical events matching the filter.
+
+        Args:
+            filter: Event filter (matches all if None)
+
+        Returns:
+            List of matching events
+        """
+        ...
+
+    def clear_history(self) -> None:
+        """Clear all event history."""
+        ...
+
+    def publish(self, event: Event) -> None:
+        """Publish an event directly."""
+        ...
+
+# Task Manager classes
+
+class TaskStatus:
+    """Task status enumeration.
+
+    Attributes:
+        PENDING: Task is waiting to start
+        RUNNING: Task is currently running
+        PAUSED: Task is paused
+        COMPLETED: Task completed successfully
+        FAILED: Task failed with an error
+        CANCELLED: Task was cancelled
+    """
+
+    PENDING: TaskStatus
+    RUNNING: TaskStatus
+    PAUSED: TaskStatus
+    COMPLETED: TaskStatus
+    FAILED: TaskStatus
+    CANCELLED: TaskStatus
+
+    def is_terminal(self) -> bool:
+        """Check if the task is in a terminal state."""
+        ...
+
+    def is_active(self) -> bool:
+        """Check if the task is active."""
+        ...
+
+class TaskInfo:
+    """Information about a task.
+
+    Attributes:
+        id: Task ID
+        name: Task name
+        task_type: Task type
+        status: Current status
+        progress: Progress (0-100)
+        progress_message: Optional progress message
+        created_at: Creation time (Unix timestamp)
+        started_at: Start time (Unix timestamp)
+        finished_at: Finish time (Unix timestamp)
+        error: Error message if failed
+        result: Result data if completed
+    """
+
+    @property
+    def id(self) -> str:
+        """Get the task ID."""
+        ...
+
+    @property
+    def name(self) -> str:
+        """Get the task name."""
+        ...
+
+    @property
+    def task_type(self) -> str:
+        """Get the task type."""
+        ...
+
+    @property
+    def status(self) -> TaskStatus:
+        """Get the current status."""
+        ...
+
+    @property
+    def progress(self) -> int:
+        """Get the progress (0-100)."""
+        ...
+
+    @property
+    def progress_message(self) -> str | None:
+        """Get the progress message."""
+        ...
+
+    @property
+    def created_at(self) -> float:
+        """Get the creation time as Unix timestamp."""
+        ...
+
+    @property
+    def started_at(self) -> float | None:
+        """Get the start time as Unix timestamp."""
+        ...
+
+    @property
+    def finished_at(self) -> float | None:
+        """Get the finish time as Unix timestamp."""
+        ...
+
+    @property
+    def error(self) -> str | None:
+        """Get the error message if failed."""
+        ...
+
+    @property
+    def result(self) -> Any | None:
+        """Get the result data if completed."""
+        ...
+
+    def get_metadata(self) -> dict[str, Any]:
+        """Get metadata as a dict."""
+        ...
+
+    def get_labels(self) -> dict[str, str]:
+        """Get labels as a dict."""
+        ...
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        ...
+
+class CancellationToken:
+    """Token for cancelling tasks.
+
+    Example:
+        token = CancellationToken()
+
+        # In task
+        if token.is_cancelled:
+            return
+
+        # From outside
+        token.cancel()
+    """
+
+    def __init__(self) -> None:
+        """Create a new cancellation token."""
+        ...
+
+    def cancel(self) -> None:
+        """Trigger cancellation."""
+        ...
+
+    @property
+    def is_cancelled(self) -> bool:
+        """Check if cancellation has been requested."""
+        ...
+
+    def child(self) -> CancellationToken:
+        """Create a child token."""
+        ...
+
+class TaskBuilder:
+    """Builder for creating tasks.
+
+    Example:
+        builder = TaskBuilder("Upload files", "upload")
+        builder = builder.metadata("file_count", 10)
+        builder = builder.label("priority", "high")
+        handle = manager.create(builder)
+    """
+
+    def __init__(self, name: str, task_type: str) -> None:
+        """Create a new task builder.
+
+        Args:
+            name: Task name
+            task_type: Task type
+        """
+        ...
+
+    def metadata(self, key: str, value: Any) -> TaskBuilder:
+        """Add metadata to the task.
+
+        Args:
+            key: Metadata key
+            value: Metadata value
+
+        Returns:
+            Self for chaining
+        """
+        ...
+
+    def label(self, key: str, value: str) -> TaskBuilder:
+        """Add a label to the task.
+
+        Args:
+            key: Label key
+            value: Label value
+
+        Returns:
+            Self for chaining
+        """
+        ...
+
+class TaskFilter:
+    """Filter for listing tasks.
+
+    Example:
+        # Active tasks only
+        filter = TaskFilter().active()
+
+        # By status
+        filter = TaskFilter().status(TaskStatus.RUNNING)
+
+        # By type
+        filter = TaskFilter().task_type("upload")
+
+        # By label
+        filter = TaskFilter().label("priority", "high")
+    """
+
+    def __init__(self) -> None:
+        """Create a new empty filter."""
+        ...
+
+    def status(self, status: TaskStatus) -> TaskFilter:
+        """Filter by status.
+
+        Args:
+            status: Status to match
+
+        Returns:
+            Self for chaining
+        """
+        ...
+
+    def task_type(self, t: str) -> TaskFilter:
+        """Filter by task type.
+
+        Args:
+            t: Task type to match
+
+        Returns:
+            Self for chaining
+        """
+        ...
+
+    def label(self, key: str, value: str) -> TaskFilter:
+        """Filter by label.
+
+        Args:
+            key: Label key
+            value: Label value
+
+        Returns:
+            Self for chaining
+        """
+        ...
+
+    def active(self) -> TaskFilter:
+        """Show only active tasks.
+
+        Returns:
+            Self for chaining
+        """
+        ...
+
+    def matches(self, info: TaskInfo) -> bool:
+        """Check if a task matches this filter."""
+        ...
+
+class TaskHandle:
+    """Handle for interacting with a task.
+
+    Example:
+        handle = manager.create_task("Upload files", "upload")
+        handle.start()
+
+        for i in range(100):
+            if handle.is_cancelled:
+                handle.fail("Cancelled by user")
+                return
+            handle.set_progress(i + 1, f"Step {i + 1}/100")
+
+        handle.complete({"uploaded": 100})
+    """
+
+    @property
+    def id(self) -> str:
+        """Get the task ID."""
+        ...
+
+    def info(self) -> TaskInfo:
+        """Get current task information."""
+        ...
+
+    @property
+    def status(self) -> TaskStatus:
+        """Get the current status."""
+        ...
+
+    @property
+    def progress(self) -> int:
+        """Get the current progress."""
+        ...
+
+    def set_progress(self, progress: int, message: str | None = None) -> None:
+        """Update the task progress.
+
+        Args:
+            progress: Progress value (0-100)
+            message: Optional progress message
+        """
+        ...
+
+    def log(self, level: str, message: str) -> None:
+        """Publish a log message.
+
+        Args:
+            level: Log level ("info", "warn", "error")
+            message: Log message
+        """
+        ...
+
+    def stdout(self, line: str) -> None:
+        """Publish stdout output."""
+        ...
+
+    def stderr(self, line: str) -> None:
+        """Publish stderr output."""
+        ...
+
+    @property
+    def is_cancelled(self) -> bool:
+        """Check if cancellation has been requested."""
+        ...
+
+    def cancel_token(self) -> CancellationToken:
+        """Get the cancellation token."""
+        ...
+
+    def start(self) -> None:
+        """Mark the task as started."""
+        ...
+
+    def complete(self, result: Any | None = None) -> None:
+        """Mark the task as completed.
+
+        Args:
+            result: Result data (will be serialized to JSON)
+        """
+        ...
+
+    def fail(self, error: str) -> None:
+        """Mark the task as failed.
+
+        Args:
+            error: Error message
+        """
+        ...
+
+class TaskManagerConfig:
+    """Configuration for TaskManager.
+
+    Attributes:
+        retention_seconds: How long to keep completed tasks
+        max_concurrent: Maximum concurrent tasks
+    """
+
+    def __init__(self, retention_seconds: int = 3600, max_concurrent: int = 100) -> None:
+        """Create a new configuration.
+
+        Args:
+            retention_seconds: How long to keep completed tasks (default: 1 hour)
+            max_concurrent: Maximum concurrent tasks (default: 100)
+        """
+        ...
+
+    @property
+    def retention_seconds(self) -> int:
+        """Get the retention period in seconds."""
+        ...
+
+    @property
+    def max_concurrent(self) -> int:
+        """Get the maximum concurrent tasks."""
+        ...
+
+class TaskManager:
+    """Manager for task lifecycle.
+
+    Example:
+        manager = TaskManager()
+
+        # Create a task
+        handle = manager.create_task("Upload files", "upload")
+        handle.start()
+
+        # List active tasks
+        active = manager.list_active()
+
+        # Cancel a task
+        manager.cancel(handle.id)
+
+        # Cleanup expired tasks
+        manager.cleanup()
+    """
+
+    def __init__(self, config: TaskManagerConfig | None = None) -> None:
+        """Create a new task manager.
+
+        Args:
+            config: Optional configuration
+        """
+        ...
+
+    def create(self, builder: TaskBuilder) -> TaskHandle:
+        """Create a new task from a builder.
+
+        Args:
+            builder: Task builder
+
+        Returns:
+            Handle for the created task
+        """
+        ...
+
+    def create_task(self, name: str, task_type: str) -> TaskHandle:
+        """Create a task with name and type directly.
+
+        Args:
+            name: Task name
+            task_type: Task type
+
+        Returns:
+            Handle for the created task
+        """
+        ...
+
+    def get(self, id: str) -> TaskInfo | None:
+        """Get task information by ID.
+
+        Args:
+            id: Task ID
+
+        Returns:
+            Task info or None if not found
+        """
+        ...
+
+    def get_handle(self, id: str) -> TaskHandle | None:
+        """Get a task handle by ID.
+
+        Args:
+            id: Task ID
+
+        Returns:
+            Task handle or None if not found
+        """
+        ...
+
+    def list(self, filter: TaskFilter | None = None) -> list[TaskInfo]:
+        """List tasks matching the filter.
+
+        Args:
+            filter: Task filter (matches all if None)
+
+        Returns:
+            List of matching tasks
+        """
+        ...
+
+    def list_active(self) -> list[TaskInfo]:
+        """List all active tasks."""
+        ...
+
+    def cancel(self, id: str) -> None:
+        """Cancel a task.
+
+        Args:
+            id: Task ID
+
+        Raises:
+            RuntimeError: If task not found
+        """
+        ...
+
+    def pause(self, id: str) -> None:
+        """Pause a task.
+
+        Args:
+            id: Task ID
+
+        Raises:
+            RuntimeError: If task not found
+        """
+        ...
+
+    def resume(self, id: str) -> None:
+        """Resume a paused task.
+
+        Args:
+            id: Task ID
+
+        Raises:
+            RuntimeError: If task not found
+        """
+        ...
+
+    def remove(self, id: str) -> None:
+        """Remove a completed task.
+
+        Args:
+            id: Task ID
+
+        Raises:
+            RuntimeError: If task not found or still active
+        """
+        ...
+
+    def cleanup(self) -> None:
+        """Cleanup expired tasks."""
+        ...
