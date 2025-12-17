@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.6](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.5...ipckit-v0.1.6) (2025-12-17)
+
+
+### Features
+
+* implement declarative macros, CLI support, and channel metrics ([d202cbc](https://github.com/loonghao/ipckit/commit/d202cbc3832b812cf885460ac9d46dc544120de0))
+
+
+### Documentation
+
+* sync README_zh.md with README.md - Add missing Rust code example for Graceful Shutdown - Add Thread Channel section - Add Event Stream section - Add Task Manager section - Add Socket Server section ([2bb001d](https://github.com/loonghao/ipckit/commit/2bb001d19ddbad76374874344e035506cbb1e85c))
+
 ## [0.1.5](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.4...ipckit-v0.1.5) (2025-12-17)
 
 
