@@ -90,7 +90,10 @@ pub use api_server::{
 };
 
 // Metrics exports
-pub use metrics::{ChannelMetrics, MeteredChannel, MeteredWrapper, MetricsSnapshot, WithMetrics};
+pub use metrics::{
+    metered_pair, AggregatedMetrics, ChannelMetrics, IntoMetered, MeteredChannel, MeteredReceiver,
+    MeteredSender, MeteredWrapper, MetricsSnapshot, WithMetrics,
+};
 
 // Waker exports
 pub use waker::{

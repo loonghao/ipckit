@@ -28,6 +28,9 @@
 - 📋 **任务管理器** - 带进度跟踪的任务生命周期管理
 - 🌐 **Socket 服务器** - 多客户端 Socket 服务器（类似 Docker 的 socket）
 - 🔧 **CLI 桥接** - 将 CLI 工具与实时进度和通信集成
+- 📊 **通道指标** - 内置发送/接收操作的指标跟踪
+- 🛠️ **CLI 工具** - 代码生成和通道监控命令
+- 📝 **声明式宏** - 便捷的通道创建和命令路由宏
 
 ## 📦 安装
 
@@ -561,6 +564,114 @@ fn main() -> ipckit::Result<()> {
 }
 ```
 
+### 通道指标（性能监控）
+
+使用内置指标跟踪发送/接收操作。
+
+**Rust:**
+```rust
+use ipckit::{ChannelMetrics, MeteredSender, MeteredReceiver, metered_pair, AggregatedMetrics};
+use std::sync::Arc;
+
+fn main() {
+    // 创建带指标的发送/接收对
+    let (tx, rx) = metered_pair(crossbeam_channel::unbounded());
+    
+    // 发送消息
+    tx.send("Hello".to_string()).unwrap();
+    tx.send("World".to_string()).unwrap();
+    
+    // 接收消息
+    let _ = rx.recv().unwrap();
+    
+    // 获取指标
+    let metrics = tx.metrics();
+    println!("已发送: {}, 已接收: {}", metrics.messages_sent(), metrics.messages_received());
+    
+    // 聚合多个通道的指标
+    let mut aggregated = AggregatedMetrics::new();
+    aggregated.add_channel("channel1", metrics.clone());
+    
+    // 导出为 JSON 或 Prometheus 格式
+    println!("{}", aggregated.to_json());
+    println!("{}", aggregated.to_prometheus());
+}
+```
+
+### CLI 工具
+
+ipckit 提供代码生成和通道监控的 CLI 工具。
+
+**代码生成:**
+```bash
+# 生成客户端代码
+ipckit generate client --name MyClient --output ./src/client.rs
+
+# 生成服务端代码
+ipckit generate server --name MyServer --output ./src/server.rs
+
+# 生成 Python 绑定
+ipckit generate python --name my_module --output ./bindings/
+
+# 生成消息处理器
+ipckit generate handler --name MessageHandler --output ./src/handler.rs
+```
+
+**通道监控:**
+```bash
+# 使用 TUI 界面监控通道
+ipckit monitor --channel my_channel
+
+# 使用 JSON 格式输出
+ipckit monitor --channel my_channel --format json
+
+# 自定义刷新间隔
+ipckit monitor --channel my_channel --interval 500
+```
+
+### 声明式宏
+
+用于常见 IPC 模式的便捷宏。
+
+**Rust:**
+```rust
+use ipckit::{ipc_channel, ipc_commands, ipc_message, ipc_middleware};
+
+fn main() {
+    // 使用单个宏创建通道
+    let (tx, rx) = ipc_channel!(String, "my_channel");
+    
+    // 定义消息类型
+    ipc_message! {
+        struct UserRequest {
+            user_id: u64,
+            action: String,
+        }
+    }
+    
+    // 定义命令路由
+    ipc_commands! {
+        "ping" => handle_ping,
+        "echo" => handle_echo,
+        "status" => handle_status,
+    }
+    
+    // 链式中间件
+    ipc_middleware! {
+        logging_middleware,
+        auth_middleware,
+        => final_handler
+    }
+}
+
+fn handle_ping() -> String { "pong".to_string() }
+fn handle_echo() -> String { "echo".to_string() }
+fn handle_status() -> String { "ok".to_string() }
+fn logging_middleware<F: Fn() -> String>(next: F) -> String { next() }
+fn auth_middleware<F: Fn() -> String>(next: F) -> String { next() }
+fn final_handler() -> String { "done".to_string() }
+```
+
 ## 📖 IPC 方式对比
 
 | 方式 | 使用场景 | 性能 | 复杂度 |
@@ -577,6 +688,9 @@ fn main() -> ipckit::Result<()> {
 | **任务管理器** | 任务生命周期 | 快速 | 中等 |
 | **Socket 服务器** | 多客户端服务器 | 快速 | 中等 |
 | **CLI 桥接** | CLI 工具集成 | 快速 | 低 |
+| **通道指标** | 性能监控 | 快速 | 低 |
+| **CLI 工具** | 代码生成和监控 | N/A | 低 |
+| **声明式宏** | 减少样板代码 | N/A | 低 |
 
 ## 🏗️ 架构
 

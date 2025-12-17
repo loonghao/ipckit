@@ -592,6 +592,254 @@ pub trait WithMetrics: Sized {
 // Implement for all types
 impl<T> WithMetrics for T {}
 
+/// A sender wrapper that automatically records metrics.
+pub struct MeteredSender<S> {
+    inner: S,
+    metrics: std::sync::Arc<ChannelMetrics>,
+}
+
+impl<S> MeteredSender<S> {
+    /// Create a new metered sender.
+    pub fn new(sender: S, metrics: std::sync::Arc<ChannelMetrics>) -> Self {
+        Self {
+            inner: sender,
+            metrics,
+        }
+    }
+
+    /// Get a reference to the inner sender.
+    pub fn inner(&self) -> &S {
+        &self.inner
+    }
+
+    /// Get a mutable reference to the inner sender.
+    pub fn inner_mut(&mut self) -> &mut S {
+        &mut self.inner
+    }
+
+    /// Get the metrics.
+    pub fn metrics(&self) -> &ChannelMetrics {
+        &self.metrics
+    }
+
+    /// Consume the wrapper and return the inner sender.
+    pub fn into_inner(self) -> S {
+        self.inner
+    }
+}
+
+impl<S: Clone> Clone for MeteredSender<S> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            metrics: self.metrics.clone(),
+        }
+    }
+}
+
+/// A receiver wrapper that automatically records metrics.
+pub struct MeteredReceiver<R> {
+    inner: R,
+    metrics: std::sync::Arc<ChannelMetrics>,
+}
+
+impl<R> MeteredReceiver<R> {
+    /// Create a new metered receiver.
+    pub fn new(receiver: R, metrics: std::sync::Arc<ChannelMetrics>) -> Self {
+        Self {
+            inner: receiver,
+            metrics,
+        }
+    }
+
+    /// Get a reference to the inner receiver.
+    pub fn inner(&self) -> &R {
+        &self.inner
+    }
+
+    /// Get a mutable reference to the inner receiver.
+    pub fn inner_mut(&mut self) -> &mut R {
+        &mut self.inner
+    }
+
+    /// Get the metrics.
+    pub fn metrics(&self) -> &ChannelMetrics {
+        &self.metrics
+    }
+
+    /// Consume the wrapper and return the inner receiver.
+    pub fn into_inner(self) -> R {
+        self.inner
+    }
+}
+
+/// Helper trait for creating metered sender/receiver pairs.
+pub trait IntoMetered: Sized {
+    /// Wrap this sender with metrics tracking.
+    fn metered(self, metrics: std::sync::Arc<ChannelMetrics>) -> MeteredSender<Self> {
+        MeteredSender::new(self, metrics)
+    }
+}
+
+impl<T> IntoMetered for T {}
+
+/// Create a metered channel pair with shared metrics.
+///
+/// Returns (sender, receiver, metrics) where both sender and receiver
+/// share the same metrics instance.
+pub fn metered_pair<S, R>(
+    sender: S,
+    receiver: R,
+) -> (
+    MeteredSender<S>,
+    MeteredReceiver<R>,
+    std::sync::Arc<ChannelMetrics>,
+) {
+    let metrics = std::sync::Arc::new(ChannelMetrics::new());
+    let metered_sender = MeteredSender::new(sender, metrics.clone());
+    let metered_receiver = MeteredReceiver::new(receiver, metrics.clone());
+    (metered_sender, metered_receiver, metrics)
+}
+
+/// Aggregated metrics from multiple channels.
+#[derive(Debug, Default)]
+pub struct AggregatedMetrics {
+    channels: parking_lot::RwLock<Vec<std::sync::Arc<ChannelMetrics>>>,
+}
+
+impl AggregatedMetrics {
+    /// Create a new aggregated metrics instance.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Register a channel's metrics for aggregation.
+    pub fn register(&self, metrics: std::sync::Arc<ChannelMetrics>) {
+        self.channels.write().push(metrics);
+    }
+
+    /// Get the total messages sent across all channels.
+    pub fn total_messages_sent(&self) -> u64 {
+        self.channels.read().iter().map(|m| m.messages_sent()).sum()
+    }
+
+    /// Get the total messages received across all channels.
+    pub fn total_messages_received(&self) -> u64 {
+        self.channels
+            .read()
+            .iter()
+            .map(|m| m.messages_received())
+            .sum()
+    }
+
+    /// Get the total bytes sent across all channels.
+    pub fn total_bytes_sent(&self) -> u64 {
+        self.channels.read().iter().map(|m| m.bytes_sent()).sum()
+    }
+
+    /// Get the total bytes received across all channels.
+    pub fn total_bytes_received(&self) -> u64 {
+        self.channels
+            .read()
+            .iter()
+            .map(|m| m.bytes_received())
+            .sum()
+    }
+
+    /// Get the total send errors across all channels.
+    pub fn total_send_errors(&self) -> u64 {
+        self.channels.read().iter().map(|m| m.send_errors()).sum()
+    }
+
+    /// Get the total receive errors across all channels.
+    pub fn total_receive_errors(&self) -> u64 {
+        self.channels
+            .read()
+            .iter()
+            .map(|m| m.receive_errors())
+            .sum()
+    }
+
+    /// Get the number of registered channels.
+    pub fn channel_count(&self) -> usize {
+        self.channels.read().len()
+    }
+
+    /// Get snapshots from all channels.
+    pub fn snapshots(&self) -> Vec<MetricsSnapshot> {
+        self.channels.read().iter().map(|m| m.snapshot()).collect()
+    }
+
+    /// Export aggregated metrics as JSON.
+    pub fn to_json(&self) -> String {
+        let aggregate = serde_json::json!({
+            "channel_count": self.channel_count(),
+            "total_messages_sent": self.total_messages_sent(),
+            "total_messages_received": self.total_messages_received(),
+            "total_bytes_sent": self.total_bytes_sent(),
+            "total_bytes_received": self.total_bytes_received(),
+            "total_send_errors": self.total_send_errors(),
+            "total_receive_errors": self.total_receive_errors(),
+            "channels": self.snapshots(),
+        });
+        serde_json::to_string_pretty(&aggregate).unwrap_or_default()
+    }
+
+    /// Export aggregated metrics in Prometheus format.
+    pub fn to_prometheus(&self, prefix: &str) -> String {
+        let mut output = String::new();
+
+        output.push_str(&format!(
+            "# HELP {prefix}_channels_total Number of registered channels\n"
+        ));
+        output.push_str(&format!("# TYPE {prefix}_channels_total gauge\n"));
+        output.push_str(&format!(
+            "{prefix}_channels_total {}\n",
+            self.channel_count()
+        ));
+
+        output.push_str(&format!(
+            "# HELP {prefix}_messages_sent_total Total messages sent across all channels\n"
+        ));
+        output.push_str(&format!("# TYPE {prefix}_messages_sent_total counter\n"));
+        output.push_str(&format!(
+            "{prefix}_messages_sent_total {}\n",
+            self.total_messages_sent()
+        ));
+
+        output.push_str(&format!(
+            "# HELP {prefix}_messages_received_total Total messages received across all channels\n"
+        ));
+        output.push_str(&format!(
+            "# TYPE {prefix}_messages_received_total counter\n"
+        ));
+        output.push_str(&format!(
+            "{prefix}_messages_received_total {}\n",
+            self.total_messages_received()
+        ));
+
+        output.push_str(&format!(
+            "# HELP {prefix}_bytes_sent_total Total bytes sent across all channels\n"
+        ));
+        output.push_str(&format!("# TYPE {prefix}_bytes_sent_total counter\n"));
+        output.push_str(&format!(
+            "{prefix}_bytes_sent_total {}\n",
+            self.total_bytes_sent()
+        ));
+
+        output.push_str(&format!(
+            "# HELP {prefix}_bytes_received_total Total bytes received across all channels\n"
+        ));
+        output.push_str(&format!("# TYPE {prefix}_bytes_received_total counter\n"));
+        output.push_str(&format!(
+            "{prefix}_bytes_received_total {}\n",
+            self.total_bytes_received()
+        ));
+
+        output
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -705,5 +953,37 @@ mod tests {
         let wrapped = DummyChannel.with_metrics();
         wrapped.metrics().record_send(100);
         assert_eq!(wrapped.metrics().messages_sent(), 1);
+    }
+
+    #[test]
+    fn test_metered_sender_receiver() {
+        struct DummySender;
+        struct DummyReceiver;
+
+        let (sender, receiver, metrics) = metered_pair(DummySender, DummyReceiver);
+
+        // Both share the same metrics
+        sender.metrics().record_send(100);
+        assert_eq!(receiver.metrics().messages_sent(), 1);
+        assert_eq!(metrics.messages_sent(), 1);
+    }
+
+    #[test]
+    fn test_aggregated_metrics() {
+        let agg = AggregatedMetrics::new();
+
+        let m1 = std::sync::Arc::new(ChannelMetrics::new());
+        let m2 = std::sync::Arc::new(ChannelMetrics::new());
+
+        m1.record_send(100);
+        m1.record_send(200);
+        m2.record_send(50);
+
+        agg.register(m1);
+        agg.register(m2);
+
+        assert_eq!(agg.channel_count(), 2);
+        assert_eq!(agg.total_messages_sent(), 3);
+        assert_eq!(agg.total_bytes_sent(), 350);
     }
 }

@@ -3,16 +3,20 @@
 mod bench;
 mod completions;
 mod create;
+mod generate;
 mod info;
 mod listen;
+mod monitor;
 mod send;
 mod serve;
 
 pub use bench::bench;
 pub use completions::completions;
 pub use create::create;
+pub use generate::generate;
 pub use info::info;
 pub use listen::listen;
+pub use monitor::monitor;
 pub use send::send;
 pub use serve::serve;
 
