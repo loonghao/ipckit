@@ -24,12 +24,12 @@ clap = { version = "4", features = ["derive", "env", "color"] }
 clap_complete = "4"
 
 # Output formatting
-console = "0.15"
-indicatif = "0.17"
+console = "0.16"
+indicatif = "0.18"
 
 # Config
-toml = "0.8"
-dirs = "5"
+toml = "0.9"
+dirs = "6"
 
 # Async
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
