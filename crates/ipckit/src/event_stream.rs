@@ -491,7 +491,12 @@ impl EventPublisher {
         total: Option<f64>,
         message: Option<&str>,
     ) {
-        self.publish(Event::mcp_progress(progress_token, progress, total, message));
+        self.publish(Event::mcp_progress(
+            progress_token,
+            progress,
+            total,
+            message,
+        ));
     }
 
     /// Publish a log event.
