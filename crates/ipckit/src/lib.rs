@@ -43,6 +43,7 @@ pub mod graceful;
 pub mod local_socket;
 pub mod metrics;
 pub mod pipe;
+pub mod resource_link;
 pub mod shm;
 pub mod socket_server;
 pub mod task_manager;
@@ -73,6 +74,7 @@ pub use graceful::{
 };
 pub use local_socket::{LocalSocketListener, LocalSocketStream};
 pub use pipe::{AnonymousPipe, NamedPipe, PipeReader, PipeWriter};
+pub use resource_link::{ResourceKind, ResourceLink, ResourceLinkInfo};
 pub use shm::SharedMemory;
 pub use socket_server::{
     Connection, ConnectionHandler, ConnectionId, ConnectionMetadata, FnHandler, Message,
