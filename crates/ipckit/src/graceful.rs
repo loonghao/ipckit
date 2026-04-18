@@ -459,7 +459,7 @@ impl ReentrantDispatch {
         self.state
             .affinity_thread
             .read()
-            .map_or(false, |id| id == std::thread::current().id())
+            .is_some_and(|id| id == std::thread::current().id())
     }
 
     /// Submit `f` to the affinity thread in a reentrancy-safe way.
@@ -505,10 +505,7 @@ impl ReentrantDispatch {
         };
 
         self.state.pending.fetch_add(1, Ordering::Relaxed);
-        self.state
-            .tx
-            .send(item)
-            .map_err(|_| IpcError::Closed)?;
+        self.state.tx.send(item).map_err(|_| IpcError::Closed)?;
 
         // Block until the affinity thread acknowledges.
         reply_rx
@@ -1022,9 +1019,7 @@ mod tests {
         server.bind_affinity_thread();
 
         // Called from the affinity thread → inline execution.
-        let result: &'static str = server
-            .submit_reentrant(|| "hello from affinity")
-            .unwrap();
+        let result: &'static str = server.submit_reentrant(|| "hello from affinity").unwrap();
         assert_eq!(result, "hello from affinity");
     }
 
