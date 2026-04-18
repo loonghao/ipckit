@@ -179,7 +179,10 @@ impl MainThreadPump {
     {
         self.inner.pending.fetch_add(1, Ordering::Relaxed);
         self.inner.total_dispatched.fetch_add(1, Ordering::Relaxed);
-        self.inner.tx.send(Box::new(f)).expect("pump receiver dropped");
+        self.inner
+            .tx
+            .send(Box::new(f))
+            .expect("pump receiver dropped");
     }
 
     /// Drain pending work items for up to `budget` wall-clock time.
@@ -265,10 +268,7 @@ mod tests {
     fn test_thread_affinity_thread_name() {
         assert!(ThreadAffinity::Any.thread_name().is_none());
         assert!(ThreadAffinity::Main.thread_name().is_none());
-        assert_eq!(
-            ThreadAffinity::Named("GT".into()).thread_name(),
-            Some("GT")
-        );
+        assert_eq!(ThreadAffinity::Named("GT".into()).thread_name(), Some("GT"));
     }
 
     #[test]

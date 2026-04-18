@@ -999,9 +999,8 @@ mod tests {
         let pump = MainThreadPump::new();
 
         // Create a task pinned to the main thread.
-        let handle = manager.create(
-            TaskBuilder::new("ui-update", "ui").affinity(ThreadAffinity::Main),
-        );
+        let handle =
+            manager.create(TaskBuilder::new("ui-update", "ui").affinity(ThreadAffinity::Main));
         assert_eq!(handle.info().affinity, ThreadAffinity::Main);
 
         // Dispatch the task start via the pump (simulating a host idle callback).
@@ -1033,9 +1032,8 @@ mod tests {
     #[test]
     fn test_task_affinity_serialization() {
         let manager = TaskManager::new(Default::default());
-        let handle = manager.create(
-            TaskBuilder::new("Task", "test").affinity(ThreadAffinity::Main),
-        );
+        let handle =
+            manager.create(TaskBuilder::new("Task", "test").affinity(ThreadAffinity::Main));
         let info = handle.info();
         let json = serde_json::to_string(&info).unwrap();
         let deserialized: TaskInfo = serde_json::from_str(&json).unwrap();
