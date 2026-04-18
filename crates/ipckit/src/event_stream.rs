@@ -132,7 +132,7 @@ impl Event {
             serde_json::json!({
                 "current": current,
                 "total": total,
-                "percentage": if total > 0 { (current * 100) / total } else { 0 },
+                "percentage": (current * 100).checked_div(total).unwrap_or(0),
                 "message": message
             }),
         )

@@ -69,7 +69,7 @@ pub use event_stream::{
 pub use file_channel::{FileChannel, FileMessage, MessageType as FileMessageType};
 pub use graceful::{
     GracefulChannel, GracefulIpcChannel, GracefulNamedPipe, GracefulWrapper, OperationGuard,
-    ShutdownState,
+    ReentrantDispatch, ShutdownState,
 };
 pub use local_socket::{LocalSocketListener, LocalSocketStream};
 pub use pipe::{AnonymousPipe, NamedPipe, PipeReader, PipeWriter};
