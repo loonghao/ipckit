@@ -64,6 +64,7 @@ pub use channel::{IpcChannel, IpcReceiver, IpcSender};
 pub use error::{IpcError, Result};
 pub use event_stream::{
     event_types, Event, EventBus, EventBusConfig, EventFilter, EventPublisher, EventSubscriber,
+    McpProgressPayload,
 };
 pub use file_channel::{FileChannel, FileMessage, MessageType as FileMessageType};
 pub use graceful::{
