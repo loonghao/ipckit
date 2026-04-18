@@ -73,8 +73,8 @@ pub use graceful::{
 };
 pub use local_socket::{LocalSocketListener, LocalSocketStream};
 pub use pipe::{AnonymousPipe, NamedPipe, PipeReader, PipeWriter};
-pub use shm::SharedMemory;
 pub use resource_link::{ResourceKind, ResourceLink, ResourceLinkInfo};
+pub use shm::SharedMemory;
 pub use socket_server::{
     Connection, ConnectionHandler, ConnectionId, ConnectionMetadata, FnHandler, Message,
     SocketClient, SocketServer, SocketServerConfig,

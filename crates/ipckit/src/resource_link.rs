@@ -155,11 +155,7 @@ fn read_kind(shm: &SharedMemory) -> Result<ResourceKind> {
     ResourceKind::try_from(byte)
 }
 
-fn write_header(
-    shm: &mut SharedMemory,
-    payload_len: usize,
-    kind: ResourceKind,
-) -> Result<()> {
+fn write_header(shm: &mut SharedMemory, payload_len: usize, kind: ResourceKind) -> Result<()> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -276,7 +272,7 @@ impl ResourceLink {
         self.created_at()
             .ok()
             .and_then(|t| t.elapsed().ok())
-            .map_or(false, |age| age > ttl)
+            .is_some_and(|age| age > ttl)
     }
 
     /// Snapshot of link metadata.
@@ -452,8 +448,7 @@ mod tests {
         let key = unique_key("crp");
         let payload = b"Hello, ResourceLink!";
 
-        let mut link =
-            ResourceLink::create(&key, 256, ResourceKind::SharedMemory, None).unwrap();
+        let mut link = ResourceLink::create(&key, 256, ResourceKind::SharedMemory, None).unwrap();
         link.write_payload(payload).unwrap();
 
         let read_back = link.read_payload(0, payload.len()).unwrap();
@@ -487,8 +482,7 @@ mod tests {
     #[test]
     fn test_kind_round_trip() {
         let key = unique_key("krt");
-        let link =
-            ResourceLink::create(&key, 16, ResourceKind::SharedMemory, None).unwrap();
+        let link = ResourceLink::create(&key, 16, ResourceKind::SharedMemory, None).unwrap();
         assert_eq!(link.kind(), ResourceKind::SharedMemory);
     }
 
