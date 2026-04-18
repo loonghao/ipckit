@@ -173,11 +173,10 @@ impl ProgressInfo {
 
     /// Get the percentage (0-100).
     pub fn percentage(&self) -> u8 {
-        if self.total == 0 {
-            0
-        } else {
-            ((self.current * 100) / self.total).min(100) as u8
-        }
+        (self.current * 100)
+            .checked_div(self.total)
+            .map(|p| p.min(100) as u8)
+            .unwrap_or(0)
     }
 }
 
