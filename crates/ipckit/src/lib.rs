@@ -43,6 +43,7 @@ pub mod graceful;
 pub mod local_socket;
 pub mod metrics;
 pub mod pipe;
+pub mod resource_link;
 pub mod shm;
 pub mod socket_server;
 pub mod task_manager;
@@ -65,14 +66,16 @@ pub use channel::{IpcChannel, IpcReceiver, IpcSender};
 pub use error::{IpcError, Result};
 pub use event_stream::{
     event_types, Event, EventBus, EventBusConfig, EventFilter, EventPublisher, EventSubscriber,
+    McpProgressPayload,
 };
 pub use file_channel::{FileChannel, FileMessage, MessageType as FileMessageType};
 pub use graceful::{
     GracefulChannel, GracefulIpcChannel, GracefulNamedPipe, GracefulWrapper, OperationGuard,
-    ShutdownState,
+    ReentrantDispatch, ShutdownState,
 };
 pub use local_socket::{LocalSocketListener, LocalSocketStream};
 pub use pipe::{AnonymousPipe, NamedPipe, PipeReader, PipeWriter};
+pub use resource_link::{ResourceKind, ResourceLink, ResourceLinkInfo};
 pub use shm::SharedMemory;
 pub use socket_server::{
     Connection, ConnectionHandler, ConnectionId, ConnectionMetadata, FnHandler, Message,

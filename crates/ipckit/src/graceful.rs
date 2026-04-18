@@ -4,6 +4,36 @@
 //! in IPC channels, preventing errors like `EventLoopClosed` when background threads
 //! continue sending messages after the main event loop has closed.
 //!
+//! # Reentrancy-safe submit
+//!
+//! [`GracefulIpcChannel`] also provides [`GracefulIpcChannel::submit_reentrant`], which
+//! avoids the deadlock that occurs when a task running on an affinity-pinned thread
+//! (e.g. the DCC main thread) tries to dispatch a follow-up task back to the same thread
+//! and block on its result.  The call sequence mirrors Swift's `MainActor.assumeIsolated`
+//! and C#'s `SynchronizationContext.Send`:
+//!
+//! - If the calling thread **is** the target affinity thread → execute `f` inline.
+//! - Otherwise → push `f` into the dispatch queue and block until the affinity thread
+//!   picks it up via [`GracefulIpcChannel::pump_pending`].
+//!
+//! ```rust,no_run
+//! use ipckit::{GracefulIpcChannel, IpcError};
+//!
+//! let channel = GracefulIpcChannel::<Vec<u8>>::create("my_channel")?;
+//! channel.bind_affinity_thread();        // Called once, on the "main" thread
+//!
+//! // On a worker thread:
+//! channel.submit_reentrant(|| {
+//!     // Runs inline when called from the main thread,
+//!     // or is queued + awaited from any other thread.
+//!     println!("Hello from the affinity thread!");
+//! })?;
+//!
+//! // In the main-thread idle callback:
+//! channel.pump_pending(std::time::Duration::from_millis(10));
+//! # Ok::<(), IpcError>(())
+//! ```
+//!
 //! # Example
 //!
 //! ```rust,no_run
@@ -351,6 +381,197 @@ impl Write for GracefulNamedPipe {
 }
 
 // ============================================================================
+// ReentrantDispatch – thread-affinity + reentrancy-safe submit
+// ============================================================================
+
+use crossbeam_channel as cb;
+use std::thread::ThreadId;
+
+/// The result of a [`ReentrantDispatch::submit_reentrant`] call.
+///
+/// Callers only care about whether the function ran successfully; the concrete
+/// return type is erased to keep the queue homogeneous.
+type BoxResult = std::result::Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
+/// A work item pushed into the cross-thread queue.
+struct WorkItem {
+    /// The closure to execute on the affinity thread.
+    func: Box<dyn FnOnce() -> BoxResult + Send>,
+    /// One-shot channel for sending the result back to the waiter.
+    reply: cb::Sender<BoxResult>,
+}
+
+/// Internal state shared between all clones of a channel.
+struct DispatchState {
+    /// Thread ID of the bound "affinity" thread, if any.
+    affinity_thread: parking_lot::RwLock<Option<ThreadId>>,
+    /// Cross-thread work queue.
+    tx: cb::Sender<WorkItem>,
+    /// Number of items still pending in the queue (for diagnostics).
+    pending: AtomicUsize,
+}
+
+/// Reentrancy-safe dispatcher for affinity-pinned threads.
+///
+/// Attach one of these to `GracefulIpcChannel` so that callers can safely
+/// dispatch work back to the "main" (or any named) thread without deadlocking
+/// when the caller itself *is* the affinity thread.
+///
+/// The pattern mirrors Swift's `MainActor.assumeIsolated` and C#'s
+/// `SynchronizationContext.Send`:
+///
+/// - **Caller is affinity thread** → execute `f` inline, return immediately.
+/// - **Caller is any other thread** → push `f` to the queue, block until the
+///   affinity thread drains it via [`ReentrantDispatch::pump`].
+#[derive(Clone)]
+pub struct ReentrantDispatch {
+    state: Arc<DispatchState>,
+    rx: Arc<cb::Receiver<WorkItem>>,
+}
+
+impl ReentrantDispatch {
+    /// Create a new dispatch queue.
+    pub fn new() -> Self {
+        let (tx, rx) = cb::unbounded();
+        Self {
+            state: Arc::new(DispatchState {
+                affinity_thread: parking_lot::RwLock::new(None),
+                tx,
+                pending: AtomicUsize::new(0),
+            }),
+            rx: Arc::new(rx),
+        }
+    }
+
+    /// Bind the current thread as the affinity thread.
+    ///
+    /// Must be called **once** from the thread that will handle dispatched
+    /// work (e.g. the DCC idle callback, Unity `EditorApplication.update`,
+    /// Unreal `FTSTicker`, etc.).
+    ///
+    /// Calling this again from a different thread replaces the binding.
+    pub fn bind_current_thread(&self) {
+        *self.state.affinity_thread.write() = Some(std::thread::current().id());
+    }
+
+    /// Returns `true` if the calling thread is the bound affinity thread.
+    pub fn is_affinity_thread(&self) -> bool {
+        self.state
+            .affinity_thread
+            .read()
+            .is_some_and(|id| id == std::thread::current().id())
+    }
+
+    /// Submit `f` to the affinity thread in a reentrancy-safe way.
+    ///
+    /// - If the current thread **is** the affinity thread, `f` is called
+    ///   inline and its return value is propagated immediately — no queue,
+    ///   no blocking.
+    /// - Otherwise, `f` is pushed into the work queue and the calling thread
+    ///   blocks until the affinity thread processes it via [`pump`](Self::pump).
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err(IpcError::Closed)` if the affinity thread has been
+    /// dropped (the receiver end of the queue is gone).
+    ///
+    /// Returns `Err(IpcError::Other(...))` if `f` itself returns an error.
+    pub fn submit_reentrant<F, R>(&self, f: F) -> Result<R>
+    where
+        F: FnOnce() -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        // ── Short-circuit: inline execution on the affinity thread ──────────
+        if self.is_affinity_thread() {
+            return Ok(f());
+        }
+
+        // ── Cross-thread dispatch ────────────────────────────────────────────
+        let (reply_tx, reply_rx) = cb::bounded::<BoxResult>(1);
+
+        // Wrap the return value so we can send it through the boxed channel.
+        // We smuggle the `R` value via a `Mutex<Option<R>>` placed on the
+        // heap so the closure stays `FnOnce() -> BoxResult`.
+        let slot: Arc<parking_lot::Mutex<Option<R>>> = Arc::new(parking_lot::Mutex::new(None));
+        let slot_write = Arc::clone(&slot);
+
+        let item = WorkItem {
+            func: Box::new(move || {
+                let result = f();
+                *slot_write.lock() = Some(result);
+                Ok(())
+            }),
+            reply: reply_tx,
+        };
+
+        self.state.pending.fetch_add(1, Ordering::Relaxed);
+        self.state.tx.send(item).map_err(|_| IpcError::Closed)?;
+
+        // Block until the affinity thread acknowledges.
+        reply_rx
+            .recv()
+            .map_err(|_| IpcError::Closed)?
+            .map_err(|e| IpcError::Other(e.to_string()))?;
+
+        // Retrieve the return value produced by the closure.
+        let value = slot
+            .lock()
+            .take()
+            .expect("affinity thread must have set the value");
+        Ok(value)
+    }
+
+    /// Drain at most one "budget" worth of pending work items on the current
+    /// (affinity) thread.
+    ///
+    /// Call this from your host's idle callback:
+    ///
+    /// ```rust,no_run
+    /// # use ipckit::ReentrantDispatch;
+    /// # let dispatch = ReentrantDispatch::new();
+    /// # dispatch.bind_current_thread();
+    /// // Maya scriptJob idleEvent / Unity EditorApplication.update / …
+    /// dispatch.pump(std::time::Duration::from_millis(8));
+    /// ```
+    ///
+    /// Returns the number of items processed.
+    pub fn pump(&self, budget: Duration) -> usize {
+        let start = Instant::now();
+        let mut count = 0;
+
+        loop {
+            if start.elapsed() >= budget {
+                break;
+            }
+
+            match self.rx.try_recv() {
+                Ok(item) => {
+                    self.state.pending.fetch_sub(1, Ordering::Relaxed);
+                    let result = (item.func)();
+                    let _ = item.reply.send(result);
+                    count += 1;
+                }
+                Err(cb::TryRecvError::Empty) => break,
+                Err(cb::TryRecvError::Disconnected) => break,
+            }
+        }
+
+        count
+    }
+
+    /// Number of items currently waiting in the queue.
+    pub fn pending_count(&self) -> usize {
+        self.state.pending.load(Ordering::Relaxed)
+    }
+}
+
+impl Default for ReentrantDispatch {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ============================================================================
 // GracefulIpcChannel - IPC channel with graceful shutdown
 // ============================================================================
 
@@ -362,6 +583,7 @@ use std::marker::PhantomData;
 pub struct GracefulIpcChannel<T = Vec<u8>> {
     inner: IpcChannel<T>,
     state: Arc<ShutdownState>,
+    dispatch: ReentrantDispatch,
     _marker: PhantomData<T>,
 }
 
@@ -371,6 +593,7 @@ impl<T> GracefulIpcChannel<T> {
         Self {
             inner: channel,
             state: Arc::new(ShutdownState::new()),
+            dispatch: ReentrantDispatch::new(),
             _marker: PhantomData,
         }
     }
@@ -380,6 +603,7 @@ impl<T> GracefulIpcChannel<T> {
         Self {
             inner: channel,
             state,
+            dispatch: ReentrantDispatch::new(),
             _marker: PhantomData,
         }
     }
@@ -427,6 +651,52 @@ impl<T> GracefulIpcChannel<T> {
     /// Get a mutable reference to the inner channel
     pub fn inner_mut(&mut self) -> &mut IpcChannel<T> {
         &mut self.inner
+    }
+
+    // ── Reentrancy-safe dispatch API ──────────────────────────────────────────
+
+    /// Bind the current thread as the affinity thread for this channel's
+    /// reentrancy-safe dispatch queue.
+    ///
+    /// Call this **once** on the "main" (or named) thread that will drive
+    /// [`pump_pending`](Self::pump_pending).
+    pub fn bind_affinity_thread(&self) {
+        self.dispatch.bind_current_thread();
+    }
+
+    /// Submit `f` to run on the bound affinity thread in a deadlock-free way.
+    ///
+    /// - **Caller is the affinity thread** → `f` executes inline.
+    /// - **Any other thread** → `f` is queued; the caller blocks until
+    ///   [`pump_pending`](Self::pump_pending) processes it.
+    ///
+    /// Parallel to Swift's `MainActor.assumeIsolated` and C#'s
+    /// `SynchronizationContext.Send`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IpcError::Closed`] if the channel has been shut down or the
+    /// affinity thread has been dropped.
+    pub fn submit_reentrant<F, R>(&self, f: F) -> Result<R>
+    where
+        F: FnOnce() -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        if self.state.is_shutdown() {
+            return Err(IpcError::Closed);
+        }
+        self.dispatch.submit_reentrant(f)
+    }
+
+    /// Drain at most `budget` of pending work items on the **current** thread.
+    ///
+    /// Call this from your host's idle callback (Maya `scriptJob idleEvent`,
+    /// Unity `EditorApplication.update`, Unreal `FTSTicker`, Blender
+    /// `bpy.app.timers`, etc.) to let cross-thread submissions complete.
+    ///
+    /// Returns the number of items processed.
+    pub fn pump_pending(&self, budget: Duration) -> usize {
+        self.dispatch.pump(budget)
     }
 }
 
@@ -661,5 +931,105 @@ mod tests {
         client.send_bytes(b"Hello, IPC!").unwrap();
 
         handle.join().unwrap();
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // ReentrantDispatch tests
+    // ────────────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_reentrant_dispatch_inline_on_affinity_thread() {
+        let dispatch = ReentrantDispatch::new();
+        dispatch.bind_current_thread();
+
+        // Called from the affinity thread → should execute inline (no queue).
+        let result: i32 = dispatch.submit_reentrant(|| 42).unwrap();
+        assert_eq!(result, 42);
+
+        // Nothing should be pending.
+        assert_eq!(dispatch.pending_count(), 0);
+    }
+
+    #[test]
+    fn test_reentrant_dispatch_cross_thread() {
+        let dispatch = ReentrantDispatch::new();
+        dispatch.bind_current_thread(); // current thread = affinity
+
+        let dispatch_worker = dispatch.clone();
+        let dispatch_pump = dispatch.clone();
+
+        // Spawn a worker that submits a closure to the affinity thread.
+        let handle = thread::spawn(move || {
+            // Worker submits; should block until pumped.
+            let result: u64 = dispatch_worker
+                .submit_reentrant(|| 99_u64)
+                .expect("submit failed");
+            assert_eq!(result, 99);
+        });
+
+        // Give the worker thread a moment to enqueue.
+        thread::sleep(Duration::from_millis(20));
+
+        // Pump on the affinity thread; must process the pending item.
+        let processed = dispatch_pump.pump(Duration::from_millis(100));
+        assert_eq!(processed, 1);
+
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn test_reentrant_dispatch_multiple_submissions() {
+        let dispatch = ReentrantDispatch::new();
+        dispatch.bind_current_thread();
+
+        let counter = Arc::new(std::sync::atomic::AtomicU32::new(0));
+
+        let handles: Vec<_> = (0..5)
+            .map(|_| {
+                let d = dispatch.clone();
+                let c = Arc::clone(&counter);
+                thread::spawn(move || {
+                    d.submit_reentrant(move || {
+                        c.fetch_add(1, Ordering::SeqCst);
+                    })
+                    .unwrap();
+                })
+            })
+            .collect();
+
+        // Give workers time to queue their items.
+        thread::sleep(Duration::from_millis(30));
+
+        // Drain with a generous budget.
+        let processed = dispatch.pump(Duration::from_millis(500));
+        assert_eq!(processed, 5);
+
+        for h in handles {
+            h.join().unwrap();
+        }
+        assert_eq!(counter.load(Ordering::SeqCst), 5);
+    }
+
+    #[test]
+    fn test_graceful_channel_submit_reentrant() {
+        let name = format!("test_reentrant_channel_{}", std::process::id());
+
+        // Create the server channel and bind the current thread as affinity.
+        let server = GracefulIpcChannel::<Vec<u8>>::create(&name).unwrap();
+        server.bind_affinity_thread();
+
+        // Called from the affinity thread → inline execution.
+        let result: &'static str = server.submit_reentrant(|| "hello from affinity").unwrap();
+        assert_eq!(result, "hello from affinity");
+    }
+
+    #[test]
+    fn test_graceful_channel_submit_reentrant_after_shutdown() {
+        let name = format!("test_reentrant_shutdown_{}", std::process::id());
+        let channel = GracefulIpcChannel::<Vec<u8>>::create(&name).unwrap();
+        channel.shutdown();
+
+        let result = channel.submit_reentrant(|| ());
+        assert!(matches!(result, Err(IpcError::Closed)));
     }
 }
