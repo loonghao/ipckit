@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.7](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.6...ipckit-v0.1.7) (2026-04-18)
+
+
+### Features
+
+* **event-stream:** MCP-compatible progress event schema ([#50](https://github.com/loonghao/ipckit/issues/50)) ([#51](https://github.com/loonghao/ipckit/issues/51)) ([de3742a](https://github.com/loonghao/ipckit/commit/de3742ab67beac8eca8a2fdde1beaa877711c44a))
+* **graceful:** reentrancy-safe submit for GracefulIpcChannel ([#48](https://github.com/loonghao/ipckit/issues/48)) ([#52](https://github.com/loonghao/ipckit/issues/52)) ([9cec469](https://github.com/loonghao/ipckit/commit/9cec469dd9474e310c9dd7944d0840268997cdde))
+* **shm:** ResourceLink — ref-counted shared-memory with TTL and orphan GC ([#49](https://github.com/loonghao/ipckit/issues/49)) ([#53](https://github.com/loonghao/ipckit/issues/53)) ([d3a85b4](https://github.com/loonghao/ipckit/commit/d3a85b4f9350d0f77a78ce9e6bfd8c8a8446bfaf))
+* **task:** ThreadAffinity + MainThreadPump for DCC/game-engine hosts ([#47](https://github.com/loonghao/ipckit/issues/47)) ([#54](https://github.com/loonghao/ipckit/issues/54)) ([2ad0118](https://github.com/loonghao/ipckit/commit/2ad0118f9b4afbabd5a25b56e1fa9d9a9583496c))
+
 ## [0.1.6](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.5...ipckit-v0.1.6) (2025-12-17)
 
 
