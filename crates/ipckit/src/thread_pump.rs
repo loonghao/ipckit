@@ -70,7 +70,7 @@ use std::time::{Duration, Instant};
 /// let builder = TaskBuilder::new("render", "render")
 ///     .affinity(ThreadAffinity::Main);
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ThreadAffinity {
     /// Task must run on the host "main" thread (UI thread in DCC apps).
     ///
@@ -85,13 +85,8 @@ pub enum ThreadAffinity {
     Named(String),
 
     /// Any worker thread is acceptable.  This is the default.
+    #[default]
     Any,
-}
-
-impl Default for ThreadAffinity {
-    fn default() -> Self {
-        Self::Any
-    }
 }
 
 impl ThreadAffinity {
