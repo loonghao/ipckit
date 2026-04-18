@@ -402,7 +402,7 @@ fn gc_orphans_unix(shm_dir: &str, max_age: Duration) -> usize {
             .ok()
             .map(|secs| UNIX_EPOCH + Duration::from_secs(secs))
             .and_then(|created| now.duration_since(created).ok())
-            .map_or(false, |age| age > max_age);
+            .is_some_and(|age| age > max_age);
 
         if !age_ok {
             continue;

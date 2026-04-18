@@ -48,6 +48,7 @@ pub mod shm;
 pub mod socket_server;
 pub mod task_manager;
 pub mod thread_channel;
+pub mod thread_pump;
 pub mod waker;
 
 // Async channel support
@@ -85,6 +86,7 @@ pub use task_manager::{
     TaskManagerConfig, TaskStatus,
 };
 pub use thread_channel::{ThreadChannel, ThreadReceiver, ThreadSender};
+pub use thread_pump::{MainThreadPump, PumpStats, ThreadAffinity};
 
 // API Server exports
 pub use api_server::{
