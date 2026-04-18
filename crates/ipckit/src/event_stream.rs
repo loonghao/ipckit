@@ -9,6 +9,7 @@
 //! - Event filtering by type and resource ID
 //! - Event history with optional replay
 //! - Backpressure handling for slow consumers
+//! - MCP (Model Context Protocol) compatible progress events via [`McpProgressPayload`]
 //!
 //! # Example
 //!
@@ -29,6 +30,27 @@
 //! // Receive the event
 //! if let Some(event) = subscriber.try_recv() {
 //!     println!("Received: {:?}", event);
+//! }
+//! ```
+//!
+//! ## MCP progress events
+//!
+//! ```rust
+//! use ipckit::{EventBus, EventFilter, event_types};
+//!
+//! let bus = EventBus::new(Default::default());
+//! let publisher = bus.publisher();
+//!
+//! // Subscribe using the MCP-progress convenience filter
+//! let subscriber = bus.subscribe(EventFilter::new().mcp_progress());
+//!
+//! // Publish an MCP-compatible progress notification
+//! publisher.mcp_progress("render-token-abc", 42.0, Some(100.0), Some("Rendering frame 42/100"));
+//!
+//! if let Some(event) = subscriber.try_recv() {
+//!     let payload: ipckit::McpProgressPayload =
+//!         serde_json::from_value(event.data).unwrap();
+//!     assert_eq!(payload.progress_token, "render-token-abc");
 //! }
 //! ```
 
@@ -116,6 +138,32 @@ impl Event {
         )
     }
 
+    /// Create an MCP-compatible progress event (`mcp.notifications.progress`).
+    ///
+    /// The event `data` field is an [`McpProgressPayload`] serialised as JSON,
+    /// matching the `notifications/progress` schema used by Claude MCP, OpenAI
+    /// Agents SDK, Cursor, Cline, and other agent frameworks.
+    ///
+    /// # Arguments
+    ///
+    /// * `progress_token` – opaque token identifying the in-progress operation.
+    /// * `progress` – units of work completed.
+    /// * `total` – total units, or `None` for indeterminate progress.
+    /// * `message` – optional status message.
+    pub fn mcp_progress(
+        progress_token: &str,
+        progress: f64,
+        total: Option<f64>,
+        message: Option<&str>,
+    ) -> Self {
+        let payload = McpProgressPayload::new(progress_token, progress, total, message);
+        Self::with_resource(
+            event_types::MCP_PROGRESS,
+            progress_token,
+            serde_json::to_value(&payload).unwrap_or_default(),
+        )
+    }
+
     /// Create a log event.
     pub fn log(resource_id: &str, level: &str, message: &str) -> Self {
         let event_type = match level {
@@ -174,6 +222,84 @@ pub mod event_types {
     // System
     pub const SYSTEM_SHUTDOWN: &str = "system.shutdown";
     pub const SYSTEM_ERROR: &str = "system.error";
+
+    // MCP (Model Context Protocol) – mirrors `notifications/progress`
+    /// MCP-aligned progress notification event.
+    ///
+    /// The event body is an [`McpProgressPayload`] serialised as JSON so it can
+    /// be forwarded verbatim to any MCP gateway without a translation layer.
+    pub const MCP_PROGRESS: &str = "mcp.notifications.progress";
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// MCP progress payload
+// ────────────────────────────────────────────────────────────────────────────
+
+/// Progress notification payload compatible with the MCP specification's
+/// `notifications/progress` message shape.
+///
+/// Every field maps 1-to-1 to the MCP JSON payload so that ipckit progress
+/// events can be forwarded verbatim to any MCP gateway (Claude, OpenAI Agents
+/// SDK, Cursor, Cline, …) without a translation layer.
+///
+/// # Schema
+///
+/// ```json
+/// {
+///   "progressToken": "task-uuid",
+///   "progress": 42.0,
+///   "total": 100.0,
+///   "message": "Rendering frame 42/100"
+/// }
+/// ```
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpProgressPayload {
+    /// Opaque token that identifies the in-progress operation.
+    ///
+    /// Consumers MUST treat this as an opaque string; its internal structure is
+    /// defined by the producer.
+    pub progress_token: String,
+
+    /// How much of the work has been completed so far.
+    ///
+    /// The unit is left to the producer; it is only meaningful relative to
+    /// [`total`](Self::total) when that field is present.
+    pub progress: f64,
+
+    /// Total amount of work, if known.
+    ///
+    /// `None` signals an indeterminate operation (spinner, not progress bar).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total: Option<f64>,
+
+    /// Human-readable status message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+impl McpProgressPayload {
+    /// Create a new MCP progress payload.
+    ///
+    /// # Arguments
+    ///
+    /// * `progress_token` – opaque identifier for the in-progress operation.
+    /// * `progress` – units of work completed so far.
+    /// * `total` – total units of work, or `None` for indeterminate progress.
+    /// * `message` – optional human-readable status string.
+    pub fn new(
+        progress_token: impl Into<String>,
+        progress: f64,
+        total: Option<f64>,
+        message: Option<impl Into<String>>,
+    ) -> Self {
+        Self {
+            progress_token: progress_token.into(),
+            progress,
+            total,
+            message: message.map(Into::into),
+        }
+    }
 }
 
 /// Event filter for subscribing to specific events.
@@ -221,6 +347,15 @@ impl EventFilter {
     pub fn until(mut self, time: SystemTime) -> Self {
         self.until = Some(time);
         self
+    }
+
+    /// Filter to MCP progress events only.
+    ///
+    /// Convenience shorthand for `.event_type(event_types::MCP_PROGRESS)`.
+    /// An MCP server crate can subscribe with this filter and forward events
+    /// verbatim — no translation needed.
+    pub fn mcp_progress(self) -> Self {
+        self.event_type(event_types::MCP_PROGRESS)
     }
 
     /// Check if an event matches this filter.
@@ -335,6 +470,28 @@ impl EventPublisher {
     /// Publish a progress event.
     pub fn progress(&self, resource_id: &str, current: u64, total: u64, message: &str) {
         self.publish(Event::progress(resource_id, current, total, message));
+    }
+
+    /// Publish an MCP-compatible progress notification.
+    ///
+    /// The event body follows the `notifications/progress` schema used by
+    /// Claude MCP, OpenAI Agents SDK, Cursor, Cline, and other agent
+    /// frameworks, so it can be forwarded verbatim without translation.
+    ///
+    /// # Arguments
+    ///
+    /// * `progress_token` – opaque token identifying the in-progress operation.
+    /// * `progress` – units of work completed.
+    /// * `total` – total units, or `None` for indeterminate progress.
+    /// * `message` – optional human-readable status string.
+    pub fn mcp_progress(
+        &self,
+        progress_token: &str,
+        progress: f64,
+        total: Option<f64>,
+        message: Option<&str>,
+    ) {
+        self.publish(Event::mcp_progress(progress_token, progress, total, message));
     }
 
     /// Publish a log event.
@@ -788,5 +945,84 @@ mod tests {
         assert_eq!(deserialized.id, event.id);
         assert_eq!(deserialized.event_type, event.event_type);
         assert_eq!(deserialized.resource_id, event.resource_id);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // MCP progress tests
+    // ────────────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_mcp_progress_payload_serialization() {
+        let payload = McpProgressPayload::new("token-abc", 42.0, Some(100.0), Some("step 42/100"));
+
+        let json = serde_json::to_value(&payload).unwrap();
+
+        // camelCase field names as required by the MCP spec
+        assert_eq!(json["progressToken"], "token-abc");
+        assert!((json["progress"].as_f64().unwrap() - 42.0).abs() < f64::EPSILON);
+        assert!((json["total"].as_f64().unwrap() - 100.0).abs() < f64::EPSILON);
+        assert_eq!(json["message"], "step 42/100");
+    }
+
+    #[test]
+    fn test_mcp_progress_payload_no_total() {
+        let payload = McpProgressPayload::new("token-xyz", 3.0, None, None::<&str>);
+        let json = serde_json::to_value(&payload).unwrap();
+
+        // `total` and `message` must be absent when None (skip_serializing_if)
+        assert!(json.get("total").is_none());
+        assert!(json.get("message").is_none());
+    }
+
+    #[test]
+    fn test_mcp_progress_payload_round_trip() {
+        let original = McpProgressPayload::new("tok", 7.5, Some(10.0), Some("msg"));
+        let json = serde_json::to_string(&original).unwrap();
+        let restored: McpProgressPayload = serde_json::from_str(&json).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn test_event_mcp_progress_constructor() {
+        let event = Event::mcp_progress("render-token", 42.0, Some(100.0), Some("frame 42"));
+
+        assert_eq!(event.event_type, event_types::MCP_PROGRESS);
+        assert_eq!(event.resource_id.as_deref(), Some("render-token"));
+
+        let payload: McpProgressPayload = serde_json::from_value(event.data).unwrap();
+        assert_eq!(payload.progress_token, "render-token");
+        assert!((payload.progress - 42.0).abs() < f64::EPSILON);
+        assert_eq!(payload.total, Some(100.0));
+        assert_eq!(payload.message.as_deref(), Some("frame 42"));
+    }
+
+    #[test]
+    fn test_publisher_mcp_progress() {
+        let bus = EventBus::new(Default::default());
+        let publisher = bus.publisher();
+        // Use the MCP-progress convenience filter
+        let sub = bus.subscribe(EventFilter::new().mcp_progress());
+
+        publisher.mcp_progress("tok", 1.0, Some(10.0), Some("start"));
+        // A plain task.progress event must NOT match the mcp-filter
+        publisher.progress("task-1", 50, 100, "half");
+
+        let events: Vec<Event> = sub.try_iter().collect();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].event_type, event_types::MCP_PROGRESS);
+    }
+
+    #[test]
+    fn test_filter_mcp_progress_excludes_others() {
+        let bus = EventBus::new(Default::default());
+        let publisher = bus.publisher();
+        let sub_all = bus.subscribe(EventFilter::new());
+        let sub_mcp = bus.subscribe(EventFilter::new().mcp_progress());
+
+        publisher.mcp_progress("t", 0.0, None, None);
+        publisher.publish(Event::new("task.started", serde_json::json!({})));
+
+        assert_eq!(sub_all.try_iter().count(), 2);
+        assert_eq!(sub_mcp.try_iter().count(), 1);
     }
 }
