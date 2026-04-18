@@ -36,6 +36,7 @@
 
 use crate::error::{IpcError, Result};
 use crate::event_stream::{event_types, Event, EventBus, EventBusConfig, EventPublisher};
+use crate::thread_pump::ThreadAffinity;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -128,6 +129,8 @@ pub struct TaskInfo {
     pub metadata: HashMap<String, serde_json::Value>,
     /// Task labels
     pub labels: HashMap<String, String>,
+    /// Thread affinity requirement.
+    pub affinity: ThreadAffinity,
     /// Error message (if failed)
     pub error: Option<String>,
     /// Result data (if completed)
@@ -371,6 +374,8 @@ pub struct TaskBuilder {
     task_type: String,
     metadata: HashMap<String, serde_json::Value>,
     labels: HashMap<String, String>,
+    /// Thread affinity requirement for this task.
+    pub affinity: ThreadAffinity,
 }
 
 impl TaskBuilder {
@@ -381,7 +386,18 @@ impl TaskBuilder {
             task_type: task_type.to_string(),
             metadata: HashMap::new(),
             labels: HashMap::new(),
+            affinity: ThreadAffinity::Any,
         }
+    }
+
+    /// Set the thread affinity requirement for this task.
+    ///
+    /// Tasks with [`ThreadAffinity::Main`] must be executed by the host's
+    /// "main" thread and are typically driven via a
+    /// [`MainThreadPump`](crate::MainThreadPump) idle callback.
+    pub fn affinity(mut self, affinity: ThreadAffinity) -> Self {
+        self.affinity = affinity;
+        self
     }
 
     /// Add metadata to the task.
@@ -531,6 +547,7 @@ impl TaskManager {
             finished_at: None,
             metadata: builder.metadata,
             labels: builder.labels,
+            affinity: builder.affinity,
             error: None,
             result: None,
         };
@@ -961,5 +978,67 @@ mod tests {
         assert_eq!(deserialized.id, info.id);
         assert_eq!(deserialized.name, info.name);
         assert_eq!(deserialized.status, info.status);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // ThreadAffinity integration tests
+    // ────────────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_task_affinity_default_is_any() {
+        let manager = TaskManager::new(Default::default());
+        let handle = manager.create(TaskBuilder::new("Task", "test"));
+        assert_eq!(handle.info().affinity, ThreadAffinity::Any);
+    }
+
+    #[test]
+    fn test_task_affinity_main() {
+        use crate::MainThreadPump;
+
+        let manager = TaskManager::new(Default::default());
+        let pump = MainThreadPump::new();
+
+        // Create a task pinned to the main thread.
+        let handle = manager.create(
+            TaskBuilder::new("ui-update", "ui").affinity(ThreadAffinity::Main),
+        );
+        assert_eq!(handle.info().affinity, ThreadAffinity::Main);
+
+        // Dispatch the task start via the pump (simulating a host idle callback).
+        let h = handle.clone();
+        pump.dispatch(move || {
+            h.start();
+            h.complete(serde_json::json!({"updated": true}));
+        });
+
+        // Pump on the "main" thread.
+        let stats = pump.pump(std::time::Duration::from_millis(100));
+        assert_eq!(stats.processed, 1);
+        assert_eq!(handle.status(), TaskStatus::Completed);
+    }
+
+    #[test]
+    fn test_task_affinity_named() {
+        let manager = TaskManager::new(Default::default());
+        let handle = manager.create(
+            TaskBuilder::new("render", "render")
+                .affinity(ThreadAffinity::Named("RenderThread".into())),
+        );
+        assert_eq!(
+            handle.info().affinity,
+            ThreadAffinity::Named("RenderThread".into())
+        );
+    }
+
+    #[test]
+    fn test_task_affinity_serialization() {
+        let manager = TaskManager::new(Default::default());
+        let handle = manager.create(
+            TaskBuilder::new("Task", "test").affinity(ThreadAffinity::Main),
+        );
+        let info = handle.info();
+        let json = serde_json::to_string(&info).unwrap();
+        let deserialized: TaskInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.affinity, ThreadAffinity::Main);
     }
 }
