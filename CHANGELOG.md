@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.9](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.8...ipckit-v0.1.9) (2026-04-19)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate console to 0.16 ([2574ebf](https://github.com/loonghao/ipckit/commit/2574ebf919c581e0e618821df9fa3789566c8855))
+
 ## [0.1.8](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.7...ipckit-v0.1.8) (2026-04-19)
 
 
