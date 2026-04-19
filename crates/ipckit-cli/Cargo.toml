@@ -28,7 +28,7 @@ console = "0.15"
 indicatif = "0.18"
 
 # Config
-toml = "0.8"
+toml = "1.0"
 dirs = "6"
 
 # Async
