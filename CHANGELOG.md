@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.8](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.7...ipckit-v0.1.8) (2026-04-19)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate dirs to v6 ([1b56c4f](https://github.com/loonghao/ipckit/commit/1b56c4fcfdd497e79feab693575cf2e7af4508de))
+* **deps:** update rust crate indicatif to 0.18 ([45edcbe](https://github.com/loonghao/ipckit/commit/45edcbe33ed2f95cef83e489e090ea42930a9855))
+
 ## [0.1.7](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.6...ipckit-v0.1.7) (2026-04-18)
 
 
