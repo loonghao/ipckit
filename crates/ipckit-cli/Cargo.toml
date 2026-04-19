@@ -24,7 +24,7 @@ clap = { version = "4", features = ["derive", "env", "color"] }
 clap_complete = "4"
 
 # Output formatting
-console = "0.15"
+console = "0.16"
 indicatif = "0.18"
 
 # Config
