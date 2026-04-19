@@ -25,7 +25,7 @@ clap_complete = "4"
 
 # Output formatting
 console = "0.15"
-indicatif = "0.17"
+indicatif = "0.18"
 
 # Config
 toml = "0.8"
