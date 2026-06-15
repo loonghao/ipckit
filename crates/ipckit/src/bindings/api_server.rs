@@ -13,7 +13,7 @@ use super::json_utils::{json_value_to_py, py_to_json_value};
 type PyObject = Py<PyAny>;
 
 /// Python wrapper for ApiServerConfig.
-#[pyclass(name = "ApiServerConfig")]
+#[pyclass(name = "ApiServerConfig", from_py_object)]
 #[derive(Clone)]
 pub struct PyApiServerConfig {
     inner: ApiServerConfig,
@@ -176,7 +176,7 @@ impl PyRequest {
 }
 
 /// Python wrapper for Response.
-#[pyclass(name = "Response")]
+#[pyclass(name = "Response", from_py_object)]
 #[derive(Clone)]
 pub struct PyResponse {
     status: u16,

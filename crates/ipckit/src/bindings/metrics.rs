@@ -196,7 +196,7 @@ impl PyChannelMetrics {
 }
 
 /// Python wrapper for MetricsSnapshot.
-#[pyclass(name = "MetricsSnapshot")]
+#[pyclass(name = "MetricsSnapshot", from_py_object)]
 #[derive(Clone)]
 pub struct PyMetricsSnapshot {
     inner: MetricsSnapshot,
