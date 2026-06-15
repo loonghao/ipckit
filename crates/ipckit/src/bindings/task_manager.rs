@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::time::{Duration, UNIX_EPOCH};
 
 /// Python wrapper for TaskStatus.
-#[pyclass(name = "TaskStatus", eq)]
+#[pyclass(name = "TaskStatus", eq, from_py_object)]
 #[derive(Clone, PartialEq)]
 pub struct PyTaskStatus {
     inner: TaskStatus,
@@ -99,7 +99,7 @@ impl From<TaskStatus> for PyTaskStatus {
 }
 
 /// Python wrapper for TaskInfo.
-#[pyclass(name = "TaskInfo")]
+#[pyclass(name = "TaskInfo", from_py_object)]
 #[derive(Clone)]
 pub struct PyTaskInfo {
     inner: TaskInfo,
@@ -216,7 +216,7 @@ impl PyTaskInfo {
 }
 
 /// Python wrapper for CancellationToken.
-#[pyclass(name = "CancellationToken")]
+#[pyclass(name = "CancellationToken", from_py_object)]
 #[derive(Clone)]
 pub struct PyCancellationToken {
     inner: CancellationToken,
@@ -256,7 +256,7 @@ impl PyCancellationToken {
 }
 
 /// Python wrapper for TaskBuilder.
-#[pyclass(name = "TaskBuilder")]
+#[pyclass(name = "TaskBuilder", from_py_object)]
 #[derive(Clone)]
 pub struct PyTaskBuilder {
     inner: TaskBuilder,
@@ -293,7 +293,7 @@ impl PyTaskBuilder {
 }
 
 /// Python wrapper for TaskFilter.
-#[pyclass(name = "TaskFilter")]
+#[pyclass(name = "TaskFilter", from_py_object)]
 #[derive(Clone)]
 pub struct PyTaskFilter {
     inner: TaskFilter,
@@ -448,7 +448,7 @@ impl PyTaskHandle {
 }
 
 /// Python wrapper for TaskManagerConfig.
-#[pyclass(name = "TaskManagerConfig")]
+#[pyclass(name = "TaskManagerConfig", from_py_object)]
 #[derive(Clone)]
 pub struct PyTaskManagerConfig {
     inner: TaskManagerConfig,

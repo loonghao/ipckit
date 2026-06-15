@@ -11,7 +11,7 @@ use pyo3::types::PyDict;
 use super::json_utils::py_to_json_value;
 
 /// Python wrapper for CliBridgeConfig
-#[pyclass(name = "CliBridgeConfig")]
+#[pyclass(name = "CliBridgeConfig", from_py_object)]
 #[derive(Clone)]
 pub struct PyCliBridgeConfig {
     inner: CliBridgeConfig,
@@ -73,7 +73,7 @@ impl PyCliBridgeConfig {
 }
 
 /// Python wrapper for ProgressInfo
-#[pyclass(name = "ProgressInfo")]
+#[pyclass(name = "ProgressInfo", from_py_object)]
 #[derive(Clone)]
 pub struct PyProgressInfo {
     inner: ProgressInfo,

@@ -10,7 +10,7 @@ use pyo3::prelude::*;
 use std::time::{Duration, UNIX_EPOCH};
 
 /// Python wrapper for Event.
-#[pyclass(name = "Event")]
+#[pyclass(name = "Event", from_py_object)]
 #[derive(Clone)]
 pub struct PyEvent {
     inner: Event,
@@ -129,7 +129,7 @@ impl PyEvent {
 }
 
 /// Python wrapper for EventFilter.
-#[pyclass(name = "EventFilter")]
+#[pyclass(name = "EventFilter", from_py_object)]
 #[derive(Clone)]
 pub struct PyEventFilter {
     inner: EventFilter,
@@ -190,7 +190,7 @@ impl PyEventFilter {
 }
 
 /// Python wrapper for EventBusConfig.
-#[pyclass(name = "EventBusConfig")]
+#[pyclass(name = "EventBusConfig", from_py_object)]
 #[derive(Clone)]
 pub struct PyEventBusConfig {
     inner: EventBusConfig,
