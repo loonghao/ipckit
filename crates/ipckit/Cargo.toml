@@ -34,7 +34,7 @@ crossbeam-channel.workspace = true
 tracing.workspace = true
 
 # Base64 encoding for bytes in JSON
-base64 = "0.22"
+base64 = "0.23"
 
 # Regex for progress parsing
 regex = "1.10"
