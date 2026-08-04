@@ -202,7 +202,7 @@ mod unix {
             libc::shm_open(
                 c_name.as_ptr(),
                 libc::O_CREAT | libc::O_RDWR | libc::O_EXCL,
-                0o666,
+                0o600,
             )
         };
 
@@ -438,5 +438,16 @@ mod tests {
         // Should fail - writing beyond boundary
         let result = shm.write(90, &[0u8; 20]);
         assert!(result.is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_shared_memory_permissions_are_owner_only() {
+        let name = format!("test_shm_permissions_{}", std::process::id());
+        let shm = SharedMemory::create(&name, 64).unwrap();
+        let mut stat: libc::stat = unsafe { std::mem::zeroed() };
+
+        assert_eq!(unsafe { libc::fstat(shm.fd, &mut stat) }, 0);
+        assert_eq!(stat.st_mode & 0o777, 0o600);
     }
 }
