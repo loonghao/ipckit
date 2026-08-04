@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.9](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.8...ipckit-v0.1.9) (2026-08-04)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate base64 to 0.23 ([1413a5c](https://github.com/loonghao/ipckit/commit/1413a5cfac3aa9a5b9a64719ac40c1618a4ddbfa))
+* **deps:** update rust crate console to 0.16 ([2574ebf](https://github.com/loonghao/ipckit/commit/2574ebf919c581e0e618821df9fa3789566c8855))
+* **deps:** update rust crate toml to v1 ([61ba0d7](https://github.com/loonghao/ipckit/commit/61ba0d7b6591382eef62dd010b76e4c59213454c))
+* restrict shared memory permissions ([e2a0abc](https://github.com/loonghao/ipckit/commit/e2a0abc8dd7ce9f88f2d07b1923770bf7af09761))
+
 ## [0.1.8](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.7...ipckit-v0.1.8) (2026-04-19)
 
 
