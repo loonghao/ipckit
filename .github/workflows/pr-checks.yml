@@ -225,11 +225,31 @@ jobs:
           pip install dist/*.whl
           python -c "import ipckit; print(f'Wheel validation OK: {ipckit.__version__}')"
 
+  # Python 3.7 contract: the pure-Python package must degrade gracefully
+  # (no compiled extension) and the py37 wheel scripts must parse on 3.7.
+  python37-contract:
+    name: Python 3.7 contract
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Python 3.7
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.7'
+
+      - name: Verify pure-Python package degrades gracefully
+        run: |
+          PYTHONPATH=python python -c "import ipckit; assert ipckit.__version__ == '0.0.0'; assert ipckit._native_available is False"
+
+      - name: Verify py37 scripts parse on Python 3.7
+        run: python -m py_compile scripts/build_py37_pure_wheel.py scripts/ci/check_python_wheel.py scripts/ci/smoke_python37_runtime.py
+
   # Final gate
   pr-ready:
     name: PR Ready
     runs-on: ubuntu-latest
-    needs: [pre-build, quick-checks, clippy, python-tests, rust-tests, wheel-validation]
+    needs: [pre-build, quick-checks, clippy, python-tests, rust-tests, wheel-validation, python37-contract]
     if: always()
     steps:
       - name: Check results
@@ -240,6 +260,7 @@ jobs:
           PYTHON_TESTS_RESULT: ${{ needs.python-tests.result }}
           RUST_TESTS_RESULT: ${{ needs.rust-tests.result }}
           WHEEL_VALIDATION_RESULT: ${{ needs.wheel-validation.result }}
+          PY37_CONTRACT_RESULT: ${{ needs.python37-contract.result }}
         run: |
           echo "## PR Check Results" >> "$GITHUB_STEP_SUMMARY"
 
@@ -264,6 +285,7 @@ jobs:
           check_result "python-tests" "$PYTHON_TESTS_RESULT"
           check_result "rust-tests" "$RUST_TESTS_RESULT"
           check_result "wheel-validation" "$WHEEL_VALIDATION_RESULT"
+          check_result "python37-contract" "$PY37_CONTRACT_RESULT"
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
 

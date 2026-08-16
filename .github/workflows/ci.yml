@@ -107,11 +107,31 @@ jobs:
         env:
           RUSTDOCFLAGS: "-D warnings"
 
+  # Python 3.7 contract: the pure-Python package must degrade gracefully
+  # (no compiled extension) and the py37 wheel scripts must parse on 3.7.
+  python37-contract:
+    name: Python 3.7 contract
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Python 3.7
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.7'
+
+      - name: Verify pure-Python package degrades gracefully
+        run: |
+          PYTHONPATH=python python -c "import ipckit; assert ipckit.__version__ == '0.0.0'; assert ipckit._native_available is False"
+
+      - name: Verify py37 scripts parse on Python 3.7
+        run: python -m py_compile scripts/build_py37_pure_wheel.py scripts/ci/check_python_wheel.py scripts/ci/smoke_python37_runtime.py
+
   # CI success gate
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [test-matrix, rust-tests, docs]
+    needs: [test-matrix, rust-tests, docs, python37-contract]
     if: always()
     steps:
       - name: Check results

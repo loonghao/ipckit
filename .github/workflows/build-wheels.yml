@@ -118,3 +118,104 @@ jobs:
           name: sdist
           path: dist/*.tar.gz
           retention-days: 7
+
+  # py37-lite: pure-Python stubs-only wheel (py3-none-any) for Python 3.7.
+  # Maya 2022 / Blender 2.83 embed CPython 3.7 and cannot load cp38-abi3
+  # wheels. scripts/build_py37_pure_wheel.py assembles a stubs-only wheel
+  # from python/ipckit without maturin, Rust, or a compiled extension.
+  py37-lite:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Python 3.7
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.7'
+
+      - name: Build py37-lite pure-Python wheel
+        run: |
+          python -m pip install --upgrade pip wheel
+          python scripts/build_py37_pure_wheel.py
+
+      - name: Check py37-lite wheel contract
+        run: python scripts/ci/check_python_wheel.py --profile lite_py37 --platform any dist/*.whl
+
+      - name: Test py37-lite wheel
+        run: |
+          python -m pip install --force-reinstall --no-deps dist/*.whl
+          python scripts/ci/smoke_python37_runtime.py --profile lite_py37
+
+      - name: Upload py37-lite wheel
+        uses: actions/upload-artifact@v7
+        with:
+          name: wheels-py37-lite
+          path: dist/*.whl
+          retention-days: 7
+
+  # Native Python 3.7 build (non-abi3, compiled extension) for old DCC hosts
+  # that embed CPython 3.7. Uses python-bindings + ext-module (no abi3-py38)
+  # and pins the manylinux2014 / glibc 2.17 baseline.
+  linux-py37:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Python 3.7
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.7'
+
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          target: x86_64
+          args: --release --out dist --features python-bindings,ext-module -i python3.7
+          sccache: 'true'
+          manylinux: '2014'
+
+      - name: Check native Python 3.7 wheel contract
+        run: python scripts/ci/check_python_wheel.py --profile native_py37 --platform linux-x86_64 dist/*.whl
+
+      - name: Test native Python 3.7 wheel
+        run: |
+          python -m pip install --force-reinstall --no-deps dist/*.whl
+          python scripts/ci/smoke_python37_runtime.py --profile native_py37
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v7
+        with:
+          name: wheels-linux-x86_64-py37
+          path: dist/*.whl
+          retention-days: 7
+
+  # Native Python 3.7 build on Windows (non-abi3). setup-python dropped 3.7
+  # on Windows, so we install it via the setup-windows-python37 composite action.
+  windows-py37:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-windows-python37
+
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          target: x64
+          args: --release --out dist --features python-bindings,ext-module -i python3.7
+          sccache: 'true'
+
+      - name: Check native Python 3.7 wheel contract
+        run: python scripts/ci/check_python_wheel.py --profile native_py37 --platform windows-x86_64 dist/*.whl
+
+      - name: Test native Python 3.7 wheel
+        run: |
+          python -m pip install --force-reinstall --no-deps dist/*.whl
+          python scripts/ci/smoke_python37_runtime.py --profile native_py37
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v7
+        with:
+          name: wheels-windows-x64-py37
+          path: dist/*.whl
+          retention-days: 7
