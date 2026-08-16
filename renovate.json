@@ -8,6 +8,11 @@
       "description": "Python 3.7 support pins pyo3 to 0.28; pyo3 0.29 dropped Python 3.7",
       "matchPackageNames": ["pyo3"],
       "enabled": false
+    },
+    {
+      "description": "Renovate mis-detects workflow version strings (python-version, runs-on) as dependencies; Python 3.7 support pins these runner images",
+      "matchPackageNames": ["python", "ubuntu", "windows"],
+      "enabled": false
     }
   ]
 }
