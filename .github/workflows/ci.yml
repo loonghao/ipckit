@@ -83,7 +83,11 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Run tests
-        run: cargo test --all-features --verbose
+        run: |
+          # Do not use --all-features: pyo3 0.28's ext-module/abi3 features make
+          # the test binary not link libpython (undefined CPython symbols).
+          cargo test --workspace --verbose
+          cargo test -p ipckit --features async,backend-interprocess --verbose
 
       - name: Run doc tests
         run: cargo test --doc
