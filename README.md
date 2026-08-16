@@ -37,7 +37,13 @@ A cross-platform IPC (Inter-Process Communication) library for Rust and Python, 
 pip install ipckit
 ```
 
-Prebuilt wheels are published as cp38-abi3 wheels for CPython 3.8 and newer. For CPython 3.7 hosts, such as the embedded interpreters in Maya 2022 and Blender 2.83, native cp37 wheels (cp37-cp37m) and a pure-Python py3-none-any "py37-lite" wheel (type stubs only) are also published.
+Prebuilt wheels are published per platform:
+
+- `cp38-abi3` wheels for CPython 3.8 and newer (linux x86_64, linux aarch64, win_amd64, macOS universal2).
+- `cp37-cp37m` wheels for CPython 3.7 (linux x86_64, win_amd64).
+- `py3-none-any` "py37-lite" wheel (type stubs only, no native module).
+
+Maya 2022 and Blender 2.83 embed CPython 3.7, which cannot load `cp38-abi3` wheels. Those hosts use the native `cp37-cp37m` wheel. On other CPython 3.7 platforms, the `py37-lite` wheel provides type stubs for static analysis but no native module.
 
 ### Rust
 
