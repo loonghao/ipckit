@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.11](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.10...ipckit-v0.1.11) (2026-08-16)
+
+
+### Bug Fixes
+
+* use bash shell for windows py37 wheel smoke test glob ([7aa6825](https://github.com/loonghao/ipckit/commit/7aa68258f403af2b66f35e92de88d4bbe499080f))
+
 ## [0.1.10](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.9...ipckit-v0.1.10) (2026-08-16)
 
 
