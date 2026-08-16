@@ -1,5 +1,60 @@
 # Changelog
 
+## [0.1.10](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.9...ipckit-v0.1.10) (2026-08-16)
+
+
+### Features
+
+* add EventStream and TaskManager Python bindings, update docs with FastAPI/Robyn integration ([c0c6584](https://github.com/loonghao/ipckit/commit/c0c65842f49407e3adf45b1a28100d1a07564f85))
+* add GracefulChannel for graceful shutdown mechanism (Closes [#7](https://github.com/loonghao/ipckit/issues/7)) ([73f47be](https://github.com/loonghao/ipckit/commit/73f47bebba71d3f73395bf00b17d35a21503f66b))
+* add Python 3.7 support (dcc-mcp-core design) ([fdef905](https://github.com/loonghao/ipckit/commit/fdef905aac0aa0347e66d8491dd59d52793e668c))
+* add Python bindings for ChannelMetrics and API Server ([0ac98e9](https://github.com/loonghao/ipckit/commit/0ac98e91575928c1d553da01ba2724efb6434845))
+* add timeout support for ApiClient and SocketClient ([6d654b7](https://github.com/loonghao/ipckit/commit/6d654b7b4bd6db7e0189d0a7964e8670c10e4361))
+* enable abi3-py38 for Python 3.8-3.13 compatibility ([84f1987](https://github.com/loonghao/ipckit/commit/84f1987e6a71d5902ad4ed92a61ed96303d0b194))
+* **event-stream:** MCP-compatible progress event schema ([#50](https://github.com/loonghao/ipckit/issues/50)) ([#51](https://github.com/loonghao/ipckit/issues/51)) ([de3742a](https://github.com/loonghao/ipckit/commit/de3742ab67beac8eca8a2fdde1beaa877711c44a))
+* **graceful:** reentrancy-safe submit for GracefulIpcChannel ([#48](https://github.com/loonghao/ipckit/issues/48)) ([#52](https://github.com/loonghao/ipckit/issues/52)) ([9cec469](https://github.com/loonghao/ipckit/commit/9cec469dd9474e310c9dd7944d0840268997cdde))
+* implement CLI Bridge for CLI tool integration (Issue [#17](https://github.com/loonghao/ipckit/issues/17)) ([e20376f](https://github.com/loonghao/ipckit/commit/e20376f4327d8829c08778042c291f4fedab8b0b))
+* implement declarative macros, CLI support, and channel metrics ([d202cbc](https://github.com/loonghao/ipckit/commit/d202cbc3832b812cf885460ac9d46dc544120de0))
+* implement remaining GitHub issues ([#8](https://github.com/loonghao/ipckit/issues/8), [#9](https://github.com/loonghao/ipckit/issues/9), [#10](https://github.com/loonghao/ipckit/issues/10), [#11](https://github.com/loonghao/ipckit/issues/11), [#12](https://github.com/loonghao/ipckit/issues/12), [#14](https://github.com/loonghao/ipckit/issues/14)) ([c60d274](https://github.com/loonghao/ipckit/commit/c60d2748c1ce72a67e5817673227f3a998512d97))
+* implement ThreadChannel, EventStream, TaskManager, and SocketServer - Closes [#13](https://github.com/loonghao/ipckit/issues/13), [#15](https://github.com/loonghao/ipckit/issues/15), [#16](https://github.com/loonghao/ipckit/issues/16), [#18](https://github.com/loonghao/ipckit/issues/18) ([6ade9d6](https://github.com/loonghao/ipckit/commit/6ade9d6c7881819ac98af6d0af8cef042bd72a89))
+* **shm:** ResourceLink — ref-counted shared-memory with TTL and orphan GC ([#49](https://github.com/loonghao/ipckit/issues/49)) ([#53](https://github.com/loonghao/ipckit/issues/53)) ([d3a85b4](https://github.com/loonghao/ipckit/commit/d3a85b4f9350d0f77a78ce9e6bfd8c8a8446bfaf))
+* **task:** ThreadAffinity + MainThreadPump for DCC/game-engine hosts ([#47](https://github.com/loonghao/ipckit/issues/47)) ([#54](https://github.com/loonghao/ipckit/issues/54)) ([2ad0118](https://github.com/loonghao/ipckit/commit/2ad0118f9b4afbabd5a25b56e1fa9d9a9583496c))
+* use Unix Domain Socket for bidirectional IPC on Unix ([86066a8](https://github.com/loonghao/ipckit/commit/86066a80c81cdd8e5075aff5c9e9679a91f605ee))
+
+
+### Bug Fixes
+
+* add delay in test_multiple_bridges to ensure unique task IDs ([4e53508](https://github.com/loonghao/ipckit/commit/4e53508a3c5c1549b4ac5c11049cf93e788388c8))
+* add from_py_object to pyclass types implementing Clone ([915a2ca](https://github.com/loonghao/ipckit/commit/915a2ca3b0d31ba2c55c5d63d811fcce6354cfcd))
+* add missing IpcError import for Unix native backend ([57e545d](https://github.com/loonghao/ipckit/commit/57e545d3b7a66a5de0cb51ca52e317d89e0e3756))
+* **deps:** update rust crate base64 to 0.23 ([1413a5c](https://github.com/loonghao/ipckit/commit/1413a5cfac3aa9a5b9a64719ac40c1618a4ddbfa))
+* **deps:** update rust crate console to 0.16 ([2574ebf](https://github.com/loonghao/ipckit/commit/2574ebf919c581e0e618821df9fa3789566c8855))
+* **deps:** update rust crate dirs to v6 ([1b56c4f](https://github.com/loonghao/ipckit/commit/1b56c4fcfdd497e79feab693575cf2e7af4508de))
+* **deps:** update rust crate indicatif to 0.18 ([45edcbe](https://github.com/loonghao/ipckit/commit/45edcbe33ed2f95cef83e489e090ea42930a9855))
+* **deps:** update rust crate toml to v1 ([61ba0d7](https://github.com/loonghao/ipckit/commit/61ba0d7b6591382eef62dd010b76e4c59213454c))
+* quote GITHUB_STEP_SUMMARY variable in pr-checks workflow ([7929ba9](https://github.com/loonghao/ipckit/commit/7929ba9a59d8ee44f7285c76fb6f993b7904f08a))
+* release GIL during blocking pipe operations and fix test assertions for Unix ([ba9b68a](https://github.com/loonghao/ipckit/commit/ba9b68a6f24fd608e1eaafb5bfeca6641976073b))
+* remove abi3-py37 feature (removed in pyo3 0.28+) ([df0407e](https://github.com/loonghao/ipckit/commit/df0407e1131fe58dba7626230ee5523eb8721871))
+* remove unused imports and variables in pipe.rs ([d9d3cba](https://github.com/loonghao/ipckit/commit/d9d3cbacad000b339b4abd1dc51b267f33d4a2b4))
+* replace deprecated pyo3 APIs (downcast -&gt; cast_exact, allow_threads -&gt; detach, PyObject -&gt; Py&lt;PyAny&gt;) ([b755572](https://github.com/loonghao/ipckit/commit/b7555724fd2c82a7ffbc57e2ea32cc1d05bcc330))
+* resolve clippy warnings and add pre-commit config ([a24de7b](https://github.com/loonghao/ipckit/commit/a24de7bf7a5bec82cccb9b1579dc1a2c9097b60e))
+* resolve compilation warnings and GIL blocking issues ([c7777ec](https://github.com/loonghao/ipckit/commit/c7777ec08bd640fd134aa31f131d692b57291157))
+* restrict shared memory permissions ([e2a0abc](https://github.com/loonghao/ipckit/commit/e2a0abc8dd7ce9f88f2d07b1923770bf7af09761))
+* simplify pr-ready shell script for better compatibility ([f491ce8](https://github.com/loonghao/ipckit/commit/f491ce81d5433f4f78d6990d0e3d74d98762e4e7))
+* use Mutex for thread-safe AnonymousPipe access ([93b77fb](https://github.com/loonghao/ipckit/commit/93b77fbd84375316c9dd7314ea4e792659f99e02))
+* use safe buffer size for unbounded async channel ([2a82f11](https://github.com/loonghao/ipckit/commit/2a82f111ef61018d1e2f52b35a469a3166e08b7d))
+
+
+### Code Refactoring
+
+* split python.rs into bindings module for better maintainability ([1701411](https://github.com/loonghao/ipckit/commit/170141124dbb159d283e600561277b772c26e2b9))
+
+
+### Documentation
+
+* add LocalSocket and GracefulChannel usage examples ([1a2c50c](https://github.com/loonghao/ipckit/commit/1a2c50c90f40319483aa3ac6bd783251de3f46a4))
+* sync README_zh.md with README.md - Add missing Rust code example for Graceful Shutdown - Add Thread Channel section - Add Event Stream section - Add Task Manager section - Add Socket Server section ([2bb001d](https://github.com/loonghao/ipckit/commit/2bb001d19ddbad76374874344e035506cbb1e85c))
+
 ## [0.1.9](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.8...ipckit-v0.1.9) (2026-08-04)
 
 
