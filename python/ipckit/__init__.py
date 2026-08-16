@@ -91,61 +91,73 @@ Example:
     tasks = client.get('/v1/tasks')
 """
 
-from .ipckit import (
-    AnonymousPipe,
-    ApiClient,
-    ApiServerConfig,
-    ChannelMetrics,
-    CliBridge,
-    CliBridgeConfig,
-    CommandOutput,
-    FileChannel,
-    GracefulIpcChannel,
-    GracefulNamedPipe,
-    IpcChannel,
-    MetricsSnapshot,
-    NamedPipe,
-    ProgressInfo,
-    Request,
-    Response,
-    SharedMemory,
-    __version__,
-    json_dumps,
-    json_dumps_pretty,
-    json_loads,
-    parse_progress,
-    wrap_command,
-)
+try:
+    from .ipckit import (
+        AnonymousPipe,
+        ApiClient,
+        ApiServerConfig,
+        ChannelMetrics,
+        CliBridge,
+        CliBridgeConfig,
+        CommandOutput,
+        FileChannel,
+        GracefulIpcChannel,
+        GracefulNamedPipe,
+        IpcChannel,
+        MetricsSnapshot,
+        NamedPipe,
+        ProgressInfo,
+        Request,
+        Response,
+        SharedMemory,
+        __version__,
+        json_dumps,
+        json_dumps_pretty,
+        json_loads,
+        parse_progress,
+        wrap_command,
+    )
+except ImportError:
+    # The compiled Rust extension is unavailable (e.g. the py37-lite stubs-only
+    # wheel for Maya 2022 / Blender 2.83 embedded Python 3.7). The package stays
+    # importable for type-checking via the bundled .pyi stubs.
+    __version__ = "0.0.0"
+    _native_available = False
+else:
+    _native_available = True
 
-__all__ = [
-    # Core IPC
-    "AnonymousPipe",
-    "NamedPipe",
-    "SharedMemory",
-    "IpcChannel",
-    "FileChannel",
-    # Graceful shutdown
-    "GracefulNamedPipe",
-    "GracefulIpcChannel",
-    # CLI Bridge
-    "CliBridge",
-    "CliBridgeConfig",
-    "ProgressInfo",
-    "CommandOutput",
-    "wrap_command",
-    "parse_progress",
-    # Metrics (Issue #10)
-    "ChannelMetrics",
-    "MetricsSnapshot",
-    # API Server (Issue #14)
-    "ApiServerConfig",
-    "Request",
-    "Response",
-    "ApiClient",
-    # JSON utilities
-    "json_dumps",
-    "json_dumps_pretty",
-    "json_loads",
-    # Version
-    "__version__",
-]
+if _native_available:
+    __all__ = [
+        # Core IPC
+        "AnonymousPipe",
+        "NamedPipe",
+        "SharedMemory",
+        "IpcChannel",
+        "FileChannel",
+        # Graceful shutdown
+        "GracefulNamedPipe",
+        "GracefulIpcChannel",
+        # CLI Bridge
+        "CliBridge",
+        "CliBridgeConfig",
+        "ProgressInfo",
+        "CommandOutput",
+        "wrap_command",
+        "parse_progress",
+        # Metrics (Issue #10)
+        "ChannelMetrics",
+        "MetricsSnapshot",
+        # API Server (Issue #14)
+        "ApiServerConfig",
+        "Request",
+        "Response",
+        "ApiClient",
+        # JSON utilities
+        "json_dumps",
+        "json_dumps_pretty",
+        "json_loads",
+        # Version
+        "__version__",
+    ]
+else:
+    __all__ = ["__version__"]
