@@ -192,7 +192,7 @@ jobs:
   # Native Python 3.7 build on Windows (non-abi3). setup-python dropped 3.7
   # on Windows, so we install it via the setup-windows-python37 composite action.
   windows-py37:
-    runs-on: windows-2022
+    runs-on: windows-2025
     steps:
       - uses: actions/checkout@v7
 
