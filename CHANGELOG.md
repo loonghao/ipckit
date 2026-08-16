@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.12](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.11...ipckit-v0.1.12) (2026-08-16)
+
+
+### Documentation
+
+* document Python 3.7 wheel tiers in detail ([61069e0](https://github.com/loonghao/ipckit/commit/61069e05844a4d8db50f754d629ea53b1f717a7e))
+* rewrite READMEs in plain tone, document Python 3.7 wheels ([f0412c9](https://github.com/loonghao/ipckit/commit/f0412c9154cf7f80b26f5e468fe0ecfc557505ad))
+
 ## [0.1.11](https://github.com/loonghao/ipckit/compare/ipckit-v0.1.10...ipckit-v0.1.11) (2026-08-16)
 
 
