@@ -8,7 +8,7 @@ version = "0.1.9"
 description = "A cross-platform IPC (Inter-Process Communication) library powered by Rust"
 readme = "README.md"
 license = { text = "MIT OR Apache-2.0" }
-requires-python = ">=3.8"
+requires-python = ">=3.7"
 authors = [
     { name = "Hal", email = "hal.long@outlook.com" }
 ]
@@ -20,6 +20,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -65,7 +66,7 @@ timeout = 30
 
 [tool.ruff]
 line-length = 100
-target-version = "py38"
+target-version = "py37"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "C4"]
