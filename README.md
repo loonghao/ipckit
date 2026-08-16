@@ -5,40 +5,39 @@
 [![Documentation](https://docs.rs/ipckit/badge.svg)](https://docs.rs/ipckit)
 [![CI](https://github.com/loonghao/ipckit/actions/workflows/ci.yml/badge.svg)](https://github.com/loonghao/ipckit/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
-[![Python Versions](https://img.shields.io/pypi/pyversions/ipckit.svg)](https://pypi.org/project/ipckit/)
-[![Rust Version](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
-[![Downloads](https://img.shields.io/pypi/dm/ipckit.svg)](https://pypi.org/project/ipckit/)
 
-A high-performance, cross-platform IPC (Inter-Process Communication) library for Rust and Python, powered by Rust.
+A cross-platform IPC (Inter-Process Communication) library for Rust and Python, implemented in Rust.
 
 [中文文档](README_zh.md)
 
-## ✨ Features
+## Features
 
-- 🚀 **High Performance** - Written in Rust, with zero-copy where possible
-- 🔀 **Cross-Platform** - Works on Windows, Linux, and macOS
-- 🐍 **Python Bindings** - First-class Python support via PyO3
-- 📦 **Multiple IPC Methods** - Pipes, Shared Memory, Channels, and File-based IPC
-- 🔒 **Thread-Safe** - Safe concurrent access across processes
-- ⚡ **Native JSON** - Built-in fast JSON serialization using Rust's serde_json
-- 🛡️ **Graceful Shutdown** - Built-in support for graceful channel shutdown
-- 🔌 **Local Socket** - Unix Domain Socket / Named Pipe abstraction for cross-platform socket communication
-- 🧵 **Thread Channel** - High-performance intra-process thread communication
-- 📡 **Event Stream** - Real-time publish-subscribe event system
-- 📋 **Task Manager** - Task lifecycle management with progress tracking
-- 🌐 **Socket Server** - Multi-client socket server (like Docker's socket)
-- 🔧 **CLI Bridge** - Integrate CLI tools with real-time progress and communication
-- 📊 **Channel Metrics** - Built-in metrics tracking for send/receive operations
-- 🛠️ **CLI Tools** - Code generation and channel monitoring commands
-- 📝 **Declarative Macros** - Convenient macros for channel creation and command routing
+- **Performance** - Implemented in Rust; uses zero-copy where possible
+- **Cross-Platform** - Runs on Windows, Linux, and macOS
+- **Python Bindings** - Python support via PyO3
+- **Multiple IPC Methods** - Pipes, shared memory, channels, and file-based IPC
+- **Thread Safety** - Safe concurrent access across processes
+- **Native JSON** - JSON serialization using Rust's serde_json
+- **Graceful Shutdown** - Support for graceful channel shutdown
+- **Local Socket** - Unix Domain Socket / Named Pipe abstraction for socket communication
+- **Thread Channel** - A channel for communication between threads in the same process
+- **Event Stream** - Publish-subscribe event system
+- **Task Manager** - Task lifecycle management with progress tracking
+- **Socket Server** - Multi-client socket server (like Docker's socket)
+- **CLI Bridge** - Integrate CLI tools with progress reporting and communication
+- **Channel Metrics** - Metrics tracking for send/receive operations
+- **CLI Tools** - Code generation and channel monitoring commands
+- **Declarative Macros** - Macros for channel creation and command routing
 
-## 📦 Installation
+## Installation
 
 ### Python
 
 ```bash
 pip install ipckit
 ```
+
+Prebuilt wheels are published as cp38-abi3 wheels for CPython 3.8 and newer. For CPython 3.7 hosts, such as the embedded interpreters in Maya 2022 and Blender 2.83, native cp37 wheels (cp37-cp37m) and a pure-Python py3-none-any "py37-lite" wheel (type stubs only) are also published.
 
 ### Rust
 
@@ -47,7 +46,7 @@ pip install ipckit
 ipckit = "0.1"
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Anonymous Pipe (Parent-Child Communication)
 
@@ -164,7 +163,7 @@ print(response)
 
 ### File Channel (Frontend-Backend Communication)
 
-Perfect for desktop applications where Python backend communicates with web frontend.
+For desktop applications where a Python backend communicates with a web frontend.
 
 **Python Backend:**
 ```python
@@ -198,12 +197,12 @@ async function pollMessages() {
 
 ### Native JSON Functions
 
-ipckit provides Rust-native JSON functions that are faster than Python's built-in json module:
+ipckit provides Rust-native JSON functions backed by Rust's serde_json:
 
 ```python
 import ipckit
 
-# Serialize (1.2x faster than json.dumps)
+# Serialize
 data = {"name": "test", "values": [1, 2, 3]}
 json_str = ipckit.json_dumps(data)
 
@@ -262,7 +261,7 @@ fn main() -> ipckit::Result<()> {
 
 **Key Benefits:**
 - Prevents `EventLoopClosed` and similar errors
-- Thread-safe shutdown signaling
+- Shutdown signaling is thread-safe
 - Tracks pending operations with RAII guards
 - Configurable drain timeout
 
@@ -310,14 +309,14 @@ print(result)
 ```
 
 **Key Benefits:**
-- Cross-platform: Works on Windows, Linux, and macOS
+- Cross-platform: Runs on Windows, Linux, and macOS
 - Bidirectional communication
-- Built-in JSON serialization with length prefix
+- JSON serialization with length prefix
 - Simple client-server model
 
 ### Thread Channel (Intra-Process Communication)
 
-High-performance channel for communication between threads within the same process.
+A channel for communication between threads within the same process.
 
 **Rust:**
 ```rust
@@ -342,7 +341,7 @@ fn main() {
 
 ### Event Stream (Publish-Subscribe)
 
-Real-time event system for task progress, logs, and notifications.
+Event system for task progress, logs, and notifications.
 
 **Python:**
 ```python
@@ -499,7 +498,7 @@ fn main() -> ipckit::Result<()> {
 
 ### API Server (HTTP-style API over Local Socket)
 
-For Python server-side applications, we recommend integrating with popular async frameworks like [FastAPI](https://fastapi.tiangolo.com/) or [Robyn](https://robyn.tech/). These frameworks provide robust routing, middleware, and async support.
+For Python server-side applications, you can integrate with async frameworks such as [FastAPI](https://fastapi.tiangolo.com/) or [Robyn](https://robyn.tech/). These frameworks provide routing, middleware, and async support.
 
 **Python with FastAPI + Uvicorn (Unix Socket):**
 ```python
@@ -522,7 +521,7 @@ if __name__ == "__main__":
     uvicorn.run(app, uds="/tmp/my_api.sock")
 ```
 
-**Python with Robyn (High Performance):**
+**Python with Robyn:**
 ```python
 # server.py
 from robyn import Robyn
@@ -584,7 +583,7 @@ fn main() -> ipckit::Result<()> {
 
 ### CLI Bridge (CLI Tool Integration)
 
-Integrate any CLI tool with real-time progress tracking and bidirectional communication.
+Integrate a CLI tool with progress tracking and bidirectional communication.
 
 **Python:**
 ```python
@@ -648,13 +647,13 @@ fn main() -> ipckit::Result<()> {
 
 **Key Features:**
 - Automatic stdout/stderr capture and forwarding
-- Built-in progress parsers (percentage, fraction, progress bar)
+- Progress parsers for percentage, fraction, and progress bar
 - Task cancellation support
 - Minimal invasiveness - existing CLI needs minimal modifications
 
 ### Channel Metrics (Performance Monitoring)
 
-Track send/receive operations with built-in metrics.
+Track send/receive operations with metrics.
 
 **Rust:**
 ```rust
@@ -719,7 +718,7 @@ ipckit monitor --channel my_channel --interval 500
 
 ### Declarative Macros
 
-Convenient macros for common IPC patterns.
+Macros for common IPC patterns.
 
 **Rust:**
 ```rust
@@ -760,27 +759,27 @@ fn auth_middleware<F: Fn() -> String>(next: F) -> String { next() }
 fn final_handler() -> String { "done".to_string() }
 ```
 
-## 📖 IPC Methods Comparison
+## IPC Methods Comparison
 
 | Method | Use Case | Performance | Complexity |
 |--------|----------|-------------|------------|
-| **Anonymous Pipe** | Parent-child processes | Fast | Low |
-| **Named Pipe** | Unrelated processes | Fast | Medium |
-| **Shared Memory** | Large data, frequent access | Fastest | High |
-| **IPC Channel** | Message passing | Fast | Low |
-| **File Channel** | Frontend-backend | Moderate | Low |
-| **Graceful Channel** | Event loop integration | Fast | Low |
-| **Local Socket** | Cross-platform sockets | Fast | Low |
-| **Thread Channel** | Intra-process threads | Fastest | Low |
-| **Event Stream** | Publish-subscribe events | Fast | Low |
-| **Task Manager** | Task lifecycle | Fast | Medium |
-| **Socket Server** | Multi-client server | Fast | Medium |
-| **CLI Bridge** | CLI tool integration | Fast | Low |
-| **Channel Metrics** | Performance monitoring | Fast | Low |
+| **Anonymous Pipe** | Parent-child processes | High | Low |
+| **Named Pipe** | Unrelated processes | High | Medium |
+| **Shared Memory** | Large data, frequent access | Very high | High |
+| **IPC Channel** | Message passing | High | Low |
+| **File Channel** | Frontend-backend | Medium | Low |
+| **Graceful Channel** | Event loop integration | High | Low |
+| **Local Socket** | Cross-platform sockets | High | Low |
+| **Thread Channel** | Intra-process threads | Very high | Low |
+| **Event Stream** | Publish-subscribe events | High | Low |
+| **Task Manager** | Task lifecycle | High | Medium |
+| **Socket Server** | Multi-client server | High | Medium |
+| **CLI Bridge** | CLI tool integration | High | Low |
+| **Channel Metrics** | Performance monitoring | High | Low |
 | **CLI Tools** | Code generation & monitoring | N/A | Low |
 | **Declarative Macros** | Boilerplate reduction | N/A | Low |
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -812,7 +811,7 @@ fn final_handler() -> String { "done".to_string() }
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 🔧 Building from Source
+## Building from Source
 
 ### Prerequisites
 
@@ -835,16 +834,16 @@ pytest tests/
 cargo test
 ```
 
-## 📝 License
+## License
 
 This project is dual-licensed under:
 
 - [MIT License](LICENSE-MIT)
 - [Apache License 2.0](LICENSE-APACHE)
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome. Please submit a Pull Request.
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
@@ -852,13 +851,13 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📚 Documentation
+## Documentation
 
 - [API Documentation (Rust)](https://docs.rs/ipckit)
 - [API Documentation (Python)](https://github.com/loonghao/ipckit/wiki)
 - [Examples](examples/)
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [PyO3](https://pyo3.rs/) - Rust bindings for Python
 - [maturin](https://www.maturin.rs/) - Build and publish Rust-based Python packages

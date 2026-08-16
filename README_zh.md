@@ -5,40 +5,39 @@
 [![Documentation](https://docs.rs/ipckit/badge.svg)](https://docs.rs/ipckit)
 [![CI](https://github.com/loonghao/ipckit/actions/workflows/ci.yml/badge.svg)](https://github.com/loonghao/ipckit/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
-[![Python Versions](https://img.shields.io/pypi/pyversions/ipckit.svg)](https://pypi.org/project/ipckit/)
-[![Rust Version](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
-[![Downloads](https://img.shields.io/pypi/dm/ipckit.svg)](https://pypi.org/project/ipckit/)
 
-一个高性能、跨平台的进程间通信 (IPC) 库，基于 Rust 构建，同时支持 Rust 和 Python。
+一个跨平台的进程间通信 (IPC) 库，同时支持 Rust 和 Python，基于 Rust 实现。
 
 [English](README.md)
 
-## ✨ 特性
+## 特性
 
-- 🚀 **高性能** - 使用 Rust 编写，尽可能实现零拷贝
-- 🔀 **跨平台** - 支持 Windows、Linux 和 macOS
-- 🐍 **Python 绑定** - 通过 PyO3 提供一流的 Python 支持
-- 📦 **多种 IPC 方式** - 管道、共享内存、通道和基于文件的 IPC
-- 🔒 **线程安全** - 跨进程安全并发访问
-- ⚡ **原生 JSON** - 使用 Rust 的 serde_json 内置快速 JSON 序列化
-- 🛡️ **优雅关闭** - 内置优雅关闭通道支持
-- 🔌 **本地套接字** - Unix Domain Socket / Named Pipe 抽象，实现跨平台套接字通信
-- 🧵 **线程通道** - 高性能进程内线程通信
-- 📡 **事件流** - 实时发布-订阅事件系统
-- 📋 **任务管理器** - 带进度跟踪的任务生命周期管理
-- 🌐 **Socket 服务器** - 多客户端 Socket 服务器（类似 Docker 的 socket）
-- 🔧 **CLI 桥接** - 将 CLI 工具与实时进度和通信集成
-- 📊 **通道指标** - 内置发送/接收操作的指标跟踪
-- 🛠️ **CLI 工具** - 代码生成和通道监控命令
-- 📝 **声明式宏** - 便捷的通道创建和命令路由宏
+- **性能** - 使用 Rust 编写，尽可能实现零拷贝
+- **跨平台** - 支持 Windows、Linux 和 macOS
+- **Python 绑定** - 通过 PyO3 提供 Python 支持
+- **多种 IPC 方式** - 管道、共享内存、通道和基于文件的 IPC
+- **线程安全** - 跨进程安全并发访问
+- **原生 JSON** - 使用 Rust 的 serde_json 进行 JSON 序列化
+- **优雅关闭** - 优雅关闭通道支持
+- **本地套接字** - Unix Domain Socket / Named Pipe 抽象，用于套接字通信
+- **线程通道** - 同一进程内线程间通信的通道
+- **事件流** - 发布-订阅事件系统
+- **任务管理器** - 带进度跟踪的任务生命周期管理
+- **Socket 服务器** - 多客户端 Socket 服务器（类似 Docker 的 socket）
+- **CLI 桥接** - 将 CLI 工具与进度报告和通信集成
+- **通道指标** - 发送/接收操作的指标跟踪
+- **CLI 工具** - 代码生成和通道监控命令
+- **声明式宏** - 通道创建和命令路由宏
 
-## 📦 安装
+## 安装
 
 ### Python
 
 ```bash
 pip install ipckit
 ```
+
+预构建 wheel 以 cp38-abi3 wheel 形式发布，适用于 CPython 3.8 及更高版本。对于 CPython 3.7 宿主环境（如 Maya 2022 和 Blender 2.83 的内嵌解释器），还发布原生 cp37 wheel（cp37-cp37m）以及仅包含类型存根的纯 Python py3-none-any "py37-lite" wheel。
 
 ### Rust
 
@@ -47,7 +46,7 @@ pip install ipckit
 ipckit = "0.1"
 ```
 
-## 🚀 快速开始
+## 快速开始
 
 ### 匿名管道（父子进程通信）
 
@@ -164,7 +163,7 @@ print(response)
 
 ### 文件通道（前后端通信）
 
-非常适合桌面应用程序，Python 后端与 Web 前端通信。
+用于桌面应用程序，其中 Python 后端与 Web 前端通信。
 
 **Python 后端:**
 ```python
@@ -198,12 +197,12 @@ async function pollMessages() {
 
 ### 原生 JSON 函数
 
-ipckit 提供 Rust 原生的 JSON 函数，比 Python 内置的 json 模块更快：
+ipckit 提供基于 Rust serde_json 的原生 JSON 函数：
 
 ```python
 import ipckit
 
-# 序列化（比 json.dumps 快 1.2 倍）
+# 序列化
 data = {"name": "test", "values": [1, 2, 3]}
 json_str = ipckit.json_dumps(data)
 
@@ -262,7 +261,7 @@ fn main() -> ipckit::Result<()> {
 
 **主要优势:**
 - 防止 `EventLoopClosed` 等类似错误
-- 线程安全的关闭信号
+- 关闭信号是线程安全的
 - 使用 RAII 守卫跟踪待处理操作
 - 可配置的排空超时
 
@@ -312,12 +311,12 @@ print(result)
 **主要优势:**
 - 跨平台：支持 Windows、Linux 和 macOS
 - 双向通信
-- 内置带长度前缀的 JSON 序列化
+- 带长度前缀的 JSON 序列化
 - 简单的客户端-服务端模型
 
 ### 线程通道（进程内通信）
 
-用于同一进程内线程间通信的高性能通道。
+用于同一进程内线程间通信的通道。
 
 **Rust:**
 ```rust
@@ -342,7 +341,7 @@ fn main() {
 
 ### 事件流（发布-订阅）
 
-用于任务进度、日志和通知的实时事件系统。
+用于任务进度、日志和通知的事件系统。
 
 **Python:**
 ```python
@@ -499,7 +498,7 @@ fn main() -> ipckit::Result<()> {
 
 ### API 服务器（基于本地套接字的 HTTP 风格 API）
 
-对于 Python 服务端应用，我们推荐集成流行的异步框架如 [FastAPI](https://fastapi.tiangolo.com/) 或 [Robyn](https://robyn.tech/)。这些框架提供了健壮的路由、中间件和异步支持。
+对于 Python 服务端应用，可以集成 [FastAPI](https://fastapi.tiangolo.com/) 或 [Robyn](https://robyn.tech/) 等异步框架。这些框架提供路由、中间件和异步支持。
 
 **Python 使用 FastAPI + Uvicorn（Unix Socket）：**
 ```python
@@ -522,7 +521,7 @@ if __name__ == "__main__":
     uvicorn.run(app, uds="/tmp/my_api.sock")
 ```
 
-**Python 使用 Robyn（高性能）：**
+**Python 使用 Robyn：**
 ```python
 # server.py
 from robyn import Robyn
@@ -584,7 +583,7 @@ fn main() -> ipckit::Result<()> {
 
 ### CLI 桥接（CLI 工具集成）
 
-将任何 CLI 工具与实时进度跟踪和双向通信集成。
+将 CLI 工具与进度跟踪和双向通信集成。
 
 **Python:**
 ```python
@@ -648,13 +647,13 @@ fn main() -> ipckit::Result<()> {
 
 **主要功能:**
 - 自动捕获和转发 stdout/stderr
-- 内置进度解析器（百分比、分数、进度条）
+- 进度解析器（百分比、分数、进度条）
 - 任务取消支持
 - 最小侵入性 - 现有 CLI 只需最少修改
 
 ### 通道指标（性能监控）
 
-使用内置指标跟踪发送/接收操作。
+使用指标跟踪发送/接收操作。
 
 **Rust:**
 ```rust
@@ -719,7 +718,7 @@ ipckit monitor --channel my_channel --interval 500
 
 ### 声明式宏
 
-用于常见 IPC 模式的便捷宏。
+用于常见 IPC 模式的宏。
 
 **Rust:**
 ```rust
@@ -760,27 +759,27 @@ fn auth_middleware<F: Fn() -> String>(next: F) -> String { next() }
 fn final_handler() -> String { "done".to_string() }
 ```
 
-## 📖 IPC 方式对比
+## IPC 方式对比
 
 | 方式 | 使用场景 | 性能 | 复杂度 |
 |------|----------|------|--------|
-| **匿名管道** | 父子进程 | 快速 | 低 |
-| **命名管道** | 无关进程 | 快速 | 中等 |
-| **共享内存** | 大数据、频繁访问 | 最快 | 高 |
-| **IPC 通道** | 消息传递 | 快速 | 低 |
-| **文件通道** | 前后端通信 | 中等 | 低 |
-| **优雅通道** | 事件循环集成 | 快速 | 低 |
-| **本地套接字** | 跨平台套接字 | 快速 | 低 |
-| **线程通道** | 进程内线程 | 最快 | 低 |
-| **事件流** | 发布-订阅事件 | 快速 | 低 |
-| **任务管理器** | 任务生命周期 | 快速 | 中等 |
-| **Socket 服务器** | 多客户端服务器 | 快速 | 中等 |
-| **CLI 桥接** | CLI 工具集成 | 快速 | 低 |
-| **通道指标** | 性能监控 | 快速 | 低 |
+| **匿名管道** | 父子进程 | 高 | 低 |
+| **命名管道** | 无关进程 | 高 | 中等 |
+| **共享内存** | 大数据、频繁访问 | 很高 | 高 |
+| **IPC 通道** | 消息传递 | 高 | 低 |
+| **文件通道** | 前后端通信 | 中 | 低 |
+| **优雅通道** | 事件循环集成 | 高 | 低 |
+| **本地套接字** | 跨平台套接字 | 高 | 低 |
+| **线程通道** | 进程内线程 | 很高 | 低 |
+| **事件流** | 发布-订阅事件 | 高 | 低 |
+| **任务管理器** | 任务生命周期 | 高 | 中等 |
+| **Socket 服务器** | 多客户端服务器 | 高 | 中等 |
+| **CLI 桥接** | CLI 工具集成 | 高 | 低 |
+| **通道指标** | 性能监控 | 高 | 低 |
 | **CLI 工具** | 代码生成和监控 | N/A | 低 |
 | **声明式宏** | 减少样板代码 | N/A | 低 |
 
-## 🏗️ 架构
+## 架构
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -812,7 +811,7 @@ fn final_handler() -> String { "done".to_string() }
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 🔧 从源码构建
+## 从源码构建
 
 ### 前置条件
 
@@ -835,16 +834,16 @@ pytest tests/
 cargo test
 ```
 
-## 📝 许可证
+## 许可证
 
 本项目采用双重许可：
 
 - [MIT 许可证](LICENSE-MIT)
 - [Apache 许可证 2.0](LICENSE-APACHE)
 
-## 🤝 贡献
+## 贡献
 
-欢迎贡献！请随时提交 Pull Request。
+欢迎贡献。请提交 Pull Request。
 
 1. Fork 本仓库
 2. 创建你的特性分支 (`git checkout -b feature/amazing-feature`)
@@ -852,13 +851,13 @@ cargo test
 4. 推送到分支 (`git push origin feature/amazing-feature`)
 5. 打开一个 Pull Request
 
-## 📚 文档
+## 文档
 
 - [API 文档 (Rust)](https://docs.rs/ipckit)
 - [API 文档 (Python)](https://github.com/loonghao/ipckit/wiki)
 - [示例](examples/)
 
-## 🙏 致谢
+## 致谢
 
 - [PyO3](https://pyo3.rs/) - Python 的 Rust 绑定
 - [maturin](https://www.maturin.rs/) - 构建和发布基于 Rust 的 Python 包
