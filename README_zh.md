@@ -37,7 +37,13 @@
 pip install ipckit
 ```
 
-预构建 wheel 以 cp38-abi3 wheel 形式发布，适用于 CPython 3.8 及更高版本。对于 CPython 3.7 宿主环境（如 Maya 2022 和 Blender 2.83 的内嵌解释器），还发布原生 cp37 wheel（cp37-cp37m）以及仅包含类型存根的纯 Python py3-none-any "py37-lite" wheel。
+预构建 wheel 按平台发布：
+
+- `cp38-abi3` wheel，适用于 CPython 3.8 及更高版本（linux x86_64、linux aarch64、win_amd64、macOS universal2）。
+- `cp37-cp37m` wheel，适用于 CPython 3.7（linux x86_64、win_amd64）。
+- `py3-none-any` "py37-lite" wheel（仅类型存根，无原生模块）。
+
+Maya 2022 和 Blender 2.83 内嵌 CPython 3.7，无法加载 `cp38-abi3` wheel。这些宿主环境使用原生 `cp37-cp37m` wheel。在其他 CPython 3.7 平台上，`py37-lite` wheel 提供类型存根以用于静态分析，但不包含原生模块。
 
 ### Rust
 
