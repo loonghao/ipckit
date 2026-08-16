@@ -115,7 +115,7 @@ jobs:
   # (no compiled extension) and the py37 wheel scripts must parse on 3.7.
   python37-contract:
     name: Python 3.7 contract
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 

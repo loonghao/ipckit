@@ -124,7 +124,7 @@ jobs:
   # wheels. scripts/build_py37_pure_wheel.py assembles a stubs-only wheel
   # from python/ipckit without maturin, Rust, or a compiled extension.
   py37-lite:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
@@ -157,7 +157,7 @@ jobs:
   # that embed CPython 3.7. Uses python-bindings + ext-module (no abi3-py38)
   # and pins the manylinux2014 / glibc 2.17 baseline.
   linux-py37:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
