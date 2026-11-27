@@ -129,6 +129,11 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
         exclude:
+          # setup-python no longer publishes 3.8/3.9 for ubuntu-latest.
+          - os: ubuntu-latest
+            python-version: "3.8"
+          - os: ubuntu-latest
+            python-version: "3.9"
           - os: windows-latest
             python-version: "3.9"
           - os: windows-latest
@@ -137,6 +142,11 @@ jobs:
             python-version: "3.9"
           - os: macos-latest
             python-version: "3.10"
+        include:
+          - os: ubuntu-22.04
+            python-version: "3.8"
+          - os: ubuntu-22.04
+            python-version: "3.9"
     steps:
       - uses: actions/checkout@v7
 
@@ -148,7 +158,7 @@ jobs:
       - name: Download pre-built wheel
         uses: actions/download-artifact@v8
         with:
-          name: ${{ matrix.os == 'ubuntu-latest' && 'wheels-linux-x86_64' || matrix.os == 'windows-latest' && 'wheels-windows-x64' || 'wheels-macos-universal2' }}
+          name: ${{ (matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-22.04') && 'wheels-linux-x86_64' || matrix.os == 'windows-latest' && 'wheels-windows-x64' || 'wheels-macos-universal2' }}
           path: dist/
 
       - name: Install wheel and test dependencies
