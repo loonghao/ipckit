@@ -32,10 +32,18 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.8", "3.10", "3.12", "3.13"]
         include:
-          - os: ubuntu-latest
+          # setup-python no longer publishes 3.8/3.9 for ubuntu-latest.
+          - os: ubuntu-22.04
+            python-version: "3.8"
+          - os: ubuntu-22.04
             python-version: "3.9"
           - os: ubuntu-latest
             python-version: "3.11"
+        exclude:
+          - os: ubuntu-latest
+            python-version: "3.8"
+          - os: ubuntu-latest
+            python-version: "3.9"
 
     steps:
       - uses: actions/checkout@v7

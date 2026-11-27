@@ -91,25 +91,43 @@ Example:
     tasks = client.get('/v1/tasks')
 """
 
+import sys
+
 try:
     from .ipckit import (
         AnonymousPipe,
         ApiClient,
         ApiServerConfig,
+        CancellationToken,
         ChannelMetrics,
         CliBridge,
         CliBridgeConfig,
         CommandOutput,
+        Event,
+        EventBus,
+        EventBusConfig,
+        EventFilter,
+        EventPublisher,
+        EventSubscriber,
         FileChannel,
         GracefulIpcChannel,
         GracefulNamedPipe,
         IpcChannel,
+        LocalSocketListener,
+        LocalSocketStream,
         MetricsSnapshot,
         NamedPipe,
         ProgressInfo,
         Request,
         Response,
         SharedMemory,
+        TaskBuilder,
+        TaskFilter,
+        TaskHandle,
+        TaskInfo,
+        TaskManager,
+        TaskManagerConfig,
+        TaskStatus,
         __version__,
         json_dumps,
         json_dumps_pretty,
@@ -117,7 +135,19 @@ try:
         parse_progress,
         wrap_command,
     )
-except ImportError:
+except ImportError as exc:
+    message = str(exc).casefold()
+    blocked_by_app_control = sys.platform == "win32" and any(
+        marker in message
+        for marker in ("application control policy", "应用程序控制策略")
+    )
+    if blocked_by_app_control:
+        raise ImportError(
+            "The ipckit Windows native extension was blocked by an application-control policy. "
+            "Allow or sign the installed .pyd with a certificate trusted by the host policy, "
+            "or deploy it through an approved installer. Check the CodeIntegrity Operational "
+            "log for event 3077 and the AppLocker EXE and DLL log for event 8004."
+        ) from exc
     # The compiled Rust extension is unavailable (e.g. the py37-lite stubs-only
     # wheel for Maya 2022 / Blender 2.83 embedded Python 3.7). The package stays
     # importable for type-checking via the bundled .pyi stubs.
@@ -134,6 +164,8 @@ if _native_available:
         "SharedMemory",
         "IpcChannel",
         "FileChannel",
+        "LocalSocketListener",
+        "LocalSocketStream",
         # Graceful shutdown
         "GracefulNamedPipe",
         "GracefulIpcChannel",
@@ -147,6 +179,22 @@ if _native_available:
         # Metrics (Issue #10)
         "ChannelMetrics",
         "MetricsSnapshot",
+        # Event stream
+        "Event",
+        "EventFilter",
+        "EventBusConfig",
+        "EventBus",
+        "EventPublisher",
+        "EventSubscriber",
+        # Task manager
+        "TaskStatus",
+        "TaskInfo",
+        "CancellationToken",
+        "TaskBuilder",
+        "TaskFilter",
+        "TaskHandle",
+        "TaskManagerConfig",
+        "TaskManager",
         # API Server (Issue #14)
         "ApiServerConfig",
         "Request",
